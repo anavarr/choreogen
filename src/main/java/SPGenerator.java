@@ -12,6 +12,15 @@ public class SPGenerator implements Generator{
     int nodes;
     JsonObject rules;
 
+    SPGenerator(int nodes){
+        this.nodes = nodes;
+        for (int i = 0; i < nodes; i++) {
+            possibilities.add(new ArrayList<>());
+            requirements.add(new ArrayList<>());
+        }
+        this.computeInitialPossibilities();
+    }
+
     @Override
     public void generateReceive(String source, String variable) {
 
@@ -54,15 +63,9 @@ public class SPGenerator implements Generator{
     }
     @Override
     public void generateSystem(int nodes) {
-        this.nodes = nodes;
-        for (int i = 0; i < nodes; i++) {
-            possibilities.add(new ArrayList<>());
-            requirements.add(new ArrayList<>());
-        }
-        computeInitialPossibilities();
-        while(!possibilities.isEmpty()){
-            collapseAt(choseProcess());
-        }
+//        while(!possibilities.isEmpty()){
+//            collapseAt(choseProcess());
+//        }
     }
     public void collapseAt(int node){
         if(!requirements.get(node).isEmpty()){
@@ -78,13 +81,15 @@ public class SPGenerator implements Generator{
             var l = rules.entrySet().stream()
                     .filter(entry -> entry.getValue().asJsonObject().getJsonArray("cdt").isEmpty()).map(Map.Entry::getKey).toList();
             for (int i = 0; i < nodes; i++) {
-                possibilities.add(new ArrayList<>());
                 for (String s : rules.keySet()) {
                     if(rules.getJsonObject(s).getJsonArray("cdt").isEmpty()) {
-                        possibilities.get(i).add(Instruction.getIntrForRule(s));
+                        try {
+                            possibilities.get(i).add(Instruction.getIntrForRule(s));
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
                     }
                 }
-                var cdts = rules.entrySet().stream().map(entry -> entry.getValue().asJsonObject().getJsonArray("cdt")).
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -92,9 +97,9 @@ public class SPGenerator implements Generator{
     }
 
     public int choseProcess(){
-        int pr = (int)Math.round(Math.random()*nodes);
+        int pr = (int)Math.round(Math.random()*(nodes-1));
         while(possibilities.get(pr).isEmpty()){
-            pr = (int)Math.round(Math.random()*nodes);
+            pr = (int)Math.round(Math.random()*(nodes-1));
         }
         return pr;
     }
