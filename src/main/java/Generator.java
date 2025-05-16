@@ -14,5 +14,5 @@ public interface Generator {
 
     void generateEnd();
 
-    void generateSystem(int nodes);
+    void generateSystem();
 }

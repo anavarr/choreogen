@@ -1,2 +1,2 @@
-public class CdtInstr implements Instruction{
+public abstract class CdtInstr implements Instruction{
 }

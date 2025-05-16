@@ -20,6 +20,7 @@ public class JsonReadingTest {
     @Test
     public void initialPossibilitiesAreAReducedSetOfInstruction(){
         var gen = new SPGenerator(16);
+        gen.computeInitialPossibilities();
         assertEquals(gen.possibilities.size(), 16);
         assertTrue(gen.possibilities.stream()
                 .allMatch(list -> list.stream()
@@ -29,5 +30,15 @@ public class JsonReadingTest {
     @Test
     public void test(){
         var gen = new SPGenerator(8);
+        gen.computeInitialPossibilities();
+    }
+
+    @Test
+    public void sronly(){
+        var gen = new SPGenerator(16, "rules_valid_min.json");
+        gen.computeInitialPossibilities();
+        assertTrue(gen.possibilities.stream().allMatch(list -> list.size() == 3));
+        gen.generateSystem();
+        System.out.println(gen.system);
     }
 }

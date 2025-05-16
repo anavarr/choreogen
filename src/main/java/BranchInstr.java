@@ -1,2 +1,2 @@
-public class BranchInstr implements Instruction{
+public abstract class BranchInstr implements Instruction{
 }

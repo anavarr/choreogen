@@ -1,2 +1,2 @@
-public class SelectInstr implements Instruction{
+public abstract class SelectInstr implements Instruction{
 }

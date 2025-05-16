@@ -1,2 +1,2 @@
-public class DefInstr implements Instruction{
+public abstract class DefInstr implements Instruction{
 }

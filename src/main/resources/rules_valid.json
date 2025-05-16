@@ -47,7 +47,6 @@
     "rule_neigh": [],
     "cdt": ["call-$variable"]
   },
-
   "rend": {
     "rule_self": ["end"],
     "rule_neigh": [],
