@@ -9,9 +9,6 @@ import jakarta.json.*;
 import Behaviour.End;
 import Behaviour.Comm;
 
-import static Behaviour.Utils.Direction.RECEIVE;
-import static Behaviour.Utils.Direction.SEND;
-
 public class SPGenerator implements Generator{
     int nodes;
     JsonObject rules;
@@ -35,58 +32,20 @@ public class SPGenerator implements Generator{
     }
 
     @Override
-    public void generateReceive(String source, String variable) {
-
-    }
-    @Override
-    public void generateBranching(String source, String label) {
-
-    }
-    @Override
-    public void generateBranch(String label) {
-
-    }
-    @Override
-    public void generateSend(String destination, String variable) {
-
-    }
-    @Override
-    public void generateSelect(String destination, String label) {
-
-    }
-    @Override
-    public void generateIf(String cdt) {
-
-    }
-    @Override
-    public void generateElse() {
-
-    }
-    @Override
-    public void generateCall(String variableName) {
-
-    }
-    @Override
-    public void generateDef(String variableName) {
-
-    }
-    @Override
-    public void generateEnd() {
-
-    }
-    @Override
     public void generateSystem() {
         while(possibilities.stream().anyMatch(l -> !l.isEmpty())){
             collapseAt(choseProcess());
             computePossibilities();
         }
     }
+
+    @Override
     public void collapseAt(int node){
         String snode = String.valueOf(node);
         if(!requirements.get(node).isEmpty()) {
             var requi = requirements.get(node).getFirst();
             requirements.get(node).remove(requi);
-            var b = requi.generateBehaviour(node, nodes);
+                var b = requi.generateBehaviour(node, nodes);
             if(system.containsKey(snode)) system.get(snode).addBehaviour(b);
             else system.put(snode, b);
         }else if(!possibilities.get(node).isEmpty()){
@@ -151,6 +110,7 @@ public class SPGenerator implements Generator{
         return pr;
     }
 
+    @Override
     public void computePossibilities(){
         for (int i = 0; i < nodes; i++) {
             if(system.containsKey(String.valueOf(i))){
@@ -166,6 +126,8 @@ public class SPGenerator implements Generator{
                             possibleNodes.add(String.valueOf(i1));
                         }
                     }
+                    var possibleRules = rules.entrySet().stream()
+                            .filter((entry) -> entry.getValue().asJsonObject().getJsonArray("cdt").isEmpty()).toList();
                     possibilities.get(i).add(new SendInstr(possibleNodes));
                     possibilities.get(i).add(new ReceiveInstr(possibleNodes));
                     possibilities.get(i).add(new EndInstr());

@@ -41,5 +41,4 @@ public abstract class Behaviour {
 
     abstract public List<Behaviour> getBranches();
     abstract public List<Behaviour> getLeaves();
-
 }

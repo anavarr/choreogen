@@ -1,0 +1,28 @@
+{
+  "rsend": {
+    "rule_self": [],
+    "rule_neigh": ["$comp-receive"],
+    "cdt": []
+  },
+  "rrcv": {
+    "rule_self": [],
+    "rule_neigh": ["$comp-send"],
+    "cdt": []
+  },
+  "rend": {
+    "rule_self": ["end"],
+    "rule_neigh": [],
+    "cdt": []
+  },
+
+  "rcall": {
+    "rule_self": ["def-$variable","check-end"],
+    "rule_neigh": [],
+    "cdt": []
+  },
+  "rdef": {
+    "rule_self": [],
+    "rule_neigh": [],
+    "cdt": ["call-$variable", "call-or-end"]
+  }
+}

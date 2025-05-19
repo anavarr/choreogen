@@ -12,8 +12,7 @@ public interface Instruction {
 //            case "rlabel":  yield new BranchInstr();    // should retrieve the one for rbranch
 //            case "rif":     yield new CdtInstr();
 //            case "relse":   yield new CdtInstr();       // should retrieve the one for rif
-//            case "rcall":   yield new CallInstr();
-//            case "rdef":    yield new DefInstr();
+            case "rcall":   yield new CallInstr(List.of());
             case "rend":    yield new EndInstr();
             default:
                 throw new Exception("lqjdf");
