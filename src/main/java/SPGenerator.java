@@ -64,9 +64,10 @@ public class SPGenerator implements Generator{
     }
 
     private void evaluateNeighborRules(Instruction instr, Behaviour behaviour, String snode) {
-        var neighRules = rules.getJsonObject(instr.getInstrName()).getJsonArray("rules_neigh");
+
+        var neighRules = rules.getJsonObject(instr.getInstrName()).getJsonArray("rule_neigh");
         for (JsonValue neighRule : neighRules) {
-            switch (neighRules.toString()){
+            switch (neighRule.toString().replace("\"\"","\"")){
                 case "$comp-receive": {
                     requirements.get(Integer.parseInt(((Comm)behaviour).getDestination())).
                             add(new SendInstr(snode));
@@ -77,8 +78,8 @@ public class SPGenerator implements Generator{
                 }
                 case "$comp-branch-$label":{
                     var branch = new BranchInstr(snode);
-                    requirements.get(Integer.parseInt(((Comm)behaviour).getDestination()))
-                            .addAll(List.of(branch, new LabelInstr(com.labels.getFirst(), branch)));
+//                    requirements.get(Integer.parseInt(((Comm)behaviour).getDestination()))
+//                            .addAll(List.of(branch, new LabelInstr(com.labels.getFirst(), branch)));
                 }
                 case "$comp-select-$label":{
 
@@ -88,47 +89,22 @@ public class SPGenerator implements Generator{
                 }
             }
         }
-        switch (behaviour){
-            case Comm com -> {
-                switch (com.getDirection()){
-                    case SEND -> {
-
-                    }
-                    case RECEIVE -> {
-                    }
-                    case SELECT -> {
-                    }
-                    case BRANCH -> {
-                        latestBranch = com;
-//                            requirements.get(Integer.parseInt(com.getDestination()))
-//                                    .add(new SelectInstr(snode, label));
-                    }
-                    default -> {
-                    }
-                }
-            }
-            case Cdt cdt -> {
-
-            }
-            case Call call -> {
-
-            }
-            case End end -> {
-
-            }
-            default -> throw new IllegalStateException("Unexpected value: " + behaviour);
-        }
     }
 
 
     private void evaluteSelfRules(Instruction p) {
         for (JsonValue ruleSelf : rules.getJsonObject(p.getInstrName()).getJsonArray("rule_self")) {
-            if (ruleSelf.toString().equals("must-elect-label")) {
-                // do stuff
-            } else if(ruleSelf.toString().equals("b")) {
+            switch (ruleSelf.toString().replace("\"\"","\"")){
+                case "must-elect-label":{
 
-            }else{
-                throw new IllegalStateException("Unexpected value: " + ruleSelf);
+                }
+                case "end":{
+                    //
+                }
+                default:{
+                    throw new IllegalStateException("Unexpected value: " + ruleSelf);
+                }
+
             }
         }
     }
