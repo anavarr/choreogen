@@ -4,7 +4,7 @@ import Behaviour.Call;
 import java.util.List;
 
 public class DefInstr implements Instruction{
-
+    String instrName = "rdef";
     Call callPoint;
     List<String> possibleVarNames;
     String varName;
@@ -25,6 +25,11 @@ public class DefInstr implements Instruction{
     @Override
     public Boolean removePossibleNode(String node) {
         return null;
+    }
+
+    @Override
+    public String getInstrName() {
+        return instrName;
     }
 
     @Override

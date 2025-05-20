@@ -1,30 +1,30 @@
 {
   "rsend": {
     "rule_self": [],
-    "rule_neigh": ["$comp-receive"],
+    "rule_neigh": ["$comp-rrcv"],
     "cdt": []
   },
   "rrcv": {
     "rule_self": [],
-    "rule_neigh": ["$comp-send"],
+    "rule_neigh": ["$comp-rsend"],
     "cdt": []
   },
 
 
   "rselect": {
     "rule_self": [],
-    "rule_neigh": ["$comp-branch-$label"],
+    "rule_neigh": ["$comp-rbranch-rlabel-$label"],
     "cdt": []
   },
   "rbranch": {
-    "rule_self": [1],
-    "rule_neigh": ["$comp-select"],
+    "rule_self": ["must-elect-label"],
+    "rule_neigh": ["$comp-rselect"],
     "cdt": []
   },
   "rlabel": {
-    "rule_self": [1],
-    "rule_neigh": ["$comp-select-$label"],
-    "cdt": [1]
+    "rule_self": [""],
+    "rule_neigh": ["$comp-rselect-$label"],
+    "cdt": ["label-scope"]
   },
 
 

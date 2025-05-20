@@ -3,10 +3,13 @@ import Behaviour.Behaviour;
 import java.util.List;
 
 public class LabelInstr implements Instruction{
+    String instrName = "rlabel";
     String label;
+    BranchInstr branch;
 
-    public LabelInstr(String label){
+    public LabelInstr(String label, BranchInstr branch){
         this.label = label;
+        this.branch = branch;
     }
 
 
@@ -18,6 +21,11 @@ public class LabelInstr implements Instruction{
     @Override
     public Boolean removePossibleNode(String node) {
         return null;
+    }
+
+    @Override
+    public String getInstrName() {
+        return instrName;
     }
 
     @Override

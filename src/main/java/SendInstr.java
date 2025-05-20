@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SendInstr implements Instruction{
+    String instrName = "rsend";
     String destination;
 
     List<String> possibleDestinations = new ArrayList<>();
@@ -39,6 +40,11 @@ public class SendInstr implements Instruction{
     @Override
     public Boolean removePossibleNode(String node) {
         return possibleDestinations.remove(node);
+    }
+
+    @Override
+    public String getInstrName() {
+        return instrName;
     }
 
     public String randomPick(){

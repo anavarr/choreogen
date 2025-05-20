@@ -7,9 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 
-public class ReceiveInstr implements Instruction{
+public class ReceiveInstr extends CommInstr implements Instruction{
+    String instrName = "rrcv";
     String source;
-    List<String> possibleSources = new ArrayList<>();
 
     public ReceiveInstr(){
 
@@ -20,30 +20,20 @@ public class ReceiveInstr implements Instruction{
     }
 
     public ReceiveInstr(List<String> possibleSources){
-        this.possibleSources = possibleSources;
+        this.possibleNodes = possibleSources;
     }
 
     @Override
-    public List<String> getPossiblesNodes() {
-        return possibleSources;
-    }
-
-    @Override
-    public Boolean removePossibleNode(String node) {
-        return possibleSources.remove(node);
+    public String getInstrName() {
+        return instrName;
     }
 
     @Override
     public Behaviour generateBehaviour(int node, int range) {
         if(source == null) {
-            if(possibleSources.isEmpty()) return new End(String.valueOf(node));
+            if(possibleNodes.isEmpty()) return new End(String.valueOf(node));
             source = randomPick();
         }
         return new Comm(String.valueOf(node),source, Utils.Direction.RECEIVE, "");
-    }
-
-    public String randomPick(){
-        int index = (int)Math.round(Math.random()*(possibleSources.size()-1));
-        return possibleSources.get(index);
     }
 }

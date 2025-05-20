@@ -1,10 +1,10 @@
 import Behaviour.Behaviour;
-import Behaviour.End;
+import Behaviour.Cdt;
 
 import java.util.List;
 
-public class EndInstr implements Instruction{
-    String instrName = "rend";
+public class IfInstr implements Instruction{
+    String instrName = "rif";
     @Override
     public List<String> getPossiblesNodes() {
         return List.of();
@@ -12,7 +12,7 @@ public class EndInstr implements Instruction{
 
     @Override
     public Boolean removePossibleNode(String node) {
-        return true;
+        return null;
     }
 
     @Override
@@ -22,6 +22,6 @@ public class EndInstr implements Instruction{
 
     @Override
     public Behaviour generateBehaviour(int node, int range) {
-        return new End(String.valueOf(node));
+        return new Cdt(String.valueOf(node), "check(expr)");
     }
 }
