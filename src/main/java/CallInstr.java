@@ -19,6 +19,10 @@ public class CallInstr implements Instruction{
         this.name = generateName();
     }
 
+    public String getName(){
+        return this.name;
+    }
+
     @Override
     public Boolean removePossibleNode(String node) {
         return null;

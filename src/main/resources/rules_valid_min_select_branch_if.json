@@ -1,0 +1,48 @@
+{
+  "rsend": {
+    "rule_self": [],
+    "rule_neigh": ["$comp-receive"],
+    "cdt": []
+  },
+  "rrcv": {
+    "rule_self": [],
+    "rule_neigh": ["$comp-send"],
+    "cdt": []
+  },
+
+
+  "rselect": {
+    "rule_self": [],
+    "rule_neigh": ["$comp-branch-$label"],
+    "cdt": []
+  },
+  "rbranch": {
+    "rule_self": [1],
+    "rule_neigh": ["$comp-select"],
+    "cdt": []
+  },
+  "rlabel": {
+    "rule_self": [1],
+    "rule_neigh": ["$comp-select-$label"],
+    "cdt": [1]
+  },
+
+
+  "rif": {
+    "rule_self": ["else","switch-if"],
+    "rule_neigh": [1],
+    "cdt": []
+  },
+  "relse": {
+    "rule_self": ["switch-if"],
+    "rule_neigh": [1],
+    "cdt": ["if"]
+  },
+
+
+  "rend": {
+    "rule_self": ["end"],
+    "rule_neigh": [],
+    "cdt": []
+  }
+}

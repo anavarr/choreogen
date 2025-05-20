@@ -8,6 +8,7 @@ import Behaviour.Behaviour;
 import jakarta.json.*;
 import Behaviour.End;
 import Behaviour.Comm;
+import Behaviour.Call;
 
 public class SPGenerator implements Generator{
     int nodes;
@@ -61,6 +62,10 @@ public class SPGenerator implements Generator{
                         requirements.get(Integer.parseInt(com.getDestination())).
                                 add(new SendInstr(snode));
                     }
+                    case SELECT -> {
+                        requirements.get(Integer.parseInt(com.getDestination()))
+                                .add(new BranchInstr(snode));
+                    }
                     default -> {
                     }
                 }
@@ -113,43 +118,65 @@ public class SPGenerator implements Generator{
     @Override
     public void computePossibilities(){
         for (int i = 0; i < nodes; i++) {
-            if(system.containsKey(String.valueOf(i))){
-                var leaf = system.get(String.valueOf(i)).getLeaves().getFirst();
-                if(leaf instanceof End) {
-                    possibilities.set(i, new ArrayList<>());
-                }else{
-                    possibilities.set(i, new ArrayList<>());
-                    var possibleNodes = new ArrayList<String>();
-                    for (int i1 = 0; i1 < nodes; i1++) {
-                        if(i1 != i && (!system.containsKey(String.valueOf(i1)) || !(system.get(String.valueOf(i1))
-                                .getLeaves().getFirst() instanceof End))){
-                            possibleNodes.add(String.valueOf(i1));
-                        }
-                    }
-                    var possibleRules = rules.entrySet().stream()
-                            .filter((entry) -> entry.getValue().asJsonObject().getJsonArray("cdt").isEmpty()).toList();
-                    possibilities.get(i).add(new SendInstr(possibleNodes));
-                    possibilities.get(i).add(new ReceiveInstr(possibleNodes));
-                    possibilities.get(i).add(new EndInstr());
-                }
-            }else{
+            possibilities.set(i, new ArrayList<>());
+            if(!(system.containsKey(String.valueOf(i)) &&
+                    (system.get(String.valueOf(i)).getLeaves().getFirst() instanceof End ||
+                    system.get(String.valueOf(i)).getLeaves().getFirst() instanceof Call))){
                 possibilities.set(i, new ArrayList<>());
-                var possibleNodes = new ArrayList<String>();
-                for (int i1 = 0; i1 < nodes; i1++) {
-                    if(i1 != i && (!system.containsKey(String.valueOf(i1)) || !(system.get(String.valueOf(i1))
-                            .getLeaves().getFirst() instanceof End))){
-                        possibleNodes.add(String.valueOf(i1));
-                    }
-                }
-                possibilities.get(i).add(new SendInstr(possibleNodes));
-                possibilities.get(i).add(new ReceiveInstr(possibleNodes));
-                possibilities.get(i).add(new EndInstr());
+                var possibleNodes = getPossibleNodesForI(i);
+                possibilities.get(i).addAll(getPossibleInstructionsForI(possibleNodes, i));
             }
-
         }
     }
 
-    ArrayList<ArrayList<Instruction>> possibilities = new ArrayList<>();
+    private List<String> getPossibleNodesForI(int i){
+        var possibleNodes = new ArrayList<String>();
+        for (int i1 = 0; i1 < nodes; i1++) {
+            if(i1 != i && !(system.containsKey(String.valueOf(i1)) &&
+                    (system.get(String.valueOf(i1)).getLeaves().getFirst() instanceof End))){
+                possibleNodes.add(String.valueOf(i1));
+            }
+        }
+        return possibleNodes;
+    }
 
+    private List<Instruction> getPossibleInstructionsForI(List<String> possibleNodes, int i){
+        var possibleRules = rules.entrySet().stream()
+                .filter((entry) -> entry.getValue().asJsonObject().getJsonArray("cdt").isEmpty())
+                .map(Map.Entry::getKey)
+                .toList();
+        ArrayList<Instruction> pInstr = new ArrayList<>();
+        for (String ruleName : possibleRules) {
+            Instruction instr = switch (ruleName){
+                case "rsend":
+                    yield new SendInstr(possibleNodes);
+                case "rrcv":
+                    yield new ReceiveInstr(possibleNodes);    // should retrieve the one for rif
+                case "rcall":
+                    List<String> forbiddenNames = new ArrayList<>();
+                    if(recursiveVariables.containsKey(String.valueOf(i)))
+                        forbiddenNames = recursiveVariables.get(String.valueOf(i));
+                    var ins = new CallInstr(forbiddenNames);
+                    recursiveVariables.computeIfAbsent(String.valueOf(i), k -> new ArrayList<>())
+                            .add(ins.getName());
+                    yield ins;
+                case "rend":
+                    yield new EndInstr();
+//            case "rselect": yield new SelectInstr();
+//            case "rbranch": yield new BranchInstr();
+//            case "rlabel":  yield new BranchInstr();    // should retrieve the one for rbranch
+//            case "rif":     yield new CdtInstr();
+//            case "relse":   yield new CdtInstr();
+                default:
+                    System.err.println("error in rules");
+                    yield null;
+            };
+            pInstr.add(instr);
+        }
+        return pInstr;
+    }
+
+    HashMap<String, ArrayList<String>> recursiveVariables = new HashMap<>();
+    ArrayList<ArrayList<Instruction>> possibilities = new ArrayList<>();
     ArrayList<ArrayList<Instruction>> requirements = new ArrayList<>();
 }

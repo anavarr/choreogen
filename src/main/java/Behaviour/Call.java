@@ -87,6 +87,7 @@ public class Call extends Behaviour{
 
     @Override
     public List<Behaviour> getLeaves() {
-        return List.of();
+        if(nextBehaviours.containsKey("unfold")) return nextBehaviours.get("unfold").getLeaves();
+        return List.of(this);
     }
 }
