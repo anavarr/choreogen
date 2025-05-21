@@ -54,7 +54,7 @@ public class JsonReadingTest {
 
     @Test
     public void sendReceiveOnly(){
-        var gen = new SPGenerator(1000, "rules_valid_min.json");
+        var gen = new SPGenerator(500, "rules_valid_min.json");
         gen.computeInitialPossibilities();
         assertTrue(gen.possibilities.stream().allMatch(list -> list.size() == 3));
         gen.generateSystem();

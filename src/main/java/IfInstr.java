@@ -5,6 +5,11 @@ import java.util.List;
 
 public class IfInstr implements Instruction{
     String instrName = "rif";
+
+    public IfInstr(){
+
+    }
+
     @Override
     public List<String> getPossiblesNodes() {
         return List.of();

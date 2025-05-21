@@ -18,13 +18,13 @@
   },
   "rbranch": {
     "rule_self": ["must-elect-label"],
-    "rule_neigh": ["$comp-rselect"],
+    "rule_neigh": [],
     "cdt": []
   },
   "rlabel": {
     "rule_self": [""],
     "rule_neigh": ["$comp-rselect-$label"],
-    "cdt": ["label-scope"]
+    "cdt": ["scope-label"]
   },
 
 
@@ -36,7 +36,7 @@
   "relse": {
     "rule_self": ["switch-if"],
     "rule_neigh": [1],
-    "cdt": ["if"]
+    "cdt": ["scope-if"]
   },
 
 

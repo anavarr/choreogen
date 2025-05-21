@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ArrayBlockingQueue;
+
 import Behaviour.Behaviour;
 import jakarta.json.*;
 import Behaviour.End;
@@ -36,6 +39,8 @@ public class SPGenerator implements Generator{
     @Override
     public void generateSystem() {
         for (int i = 0; i < nodes; i++) {
+            scope = new ArrayBlockingQueue<>(1000);
+            scope.add("main");
             while(!possibilities.get(i).isEmpty()){
                 collapseAt(i);
                 computePossibilitiesAtI(i);
@@ -54,9 +59,13 @@ public class SPGenerator implements Generator{
             else system.put(snode, b);
         }else if(!possibilities.get(node).isEmpty()){
             var p = pickRandom(possibilities.get(node));
+            var b = p.generateBehaviour(node, nodes);
+            if(b == null) {
+                b = new End(String.valueOf(node));
+                p = new EndInstr();
+            }
             //process requirements
             evaluteSelfRules(p);
-            var b = p.generateBehaviour(node, nodes);
             evaluateNeighborRules(p,b, snode);
             if(system.containsKey(snode)) system.get(snode).addBehaviour(b);
             else system.put(snode, b);
@@ -64,28 +73,34 @@ public class SPGenerator implements Generator{
     }
 
     private void evaluateNeighborRules(Instruction instr, Behaviour behaviour, String snode) {
-
         var neighRules = rules.getJsonObject(instr.getInstrName()).getJsonArray("rule_neigh");
         for (JsonValue neighRule : neighRules) {
-            switch (neighRule.toString().replace("\"\"","\"")){
-                case "$comp-receive": {
+            switch (neighRule.toString().replace("\"","")){
+                case "$comp-rrcv": {
                     requirements.get(Integer.parseInt(((Comm)behaviour).getDestination())).
                             add(new SendInstr(snode));
+                    break;
                 }
-                case "$comp-send":{
+                case "$comp-rsend":{
                     requirements.get(Integer.parseInt(((Comm)behaviour).getDestination())).
                             add(new ReceiveInstr(snode));
+                    break;
                 }
-                case "$comp-branch-$label":{
+                case "$comp-rbranch-rlabel-$label":{
                     var branch = new BranchInstr(snode);
 //                    requirements.get(Integer.parseInt(((Comm)behaviour).getDestination()))
 //                            .addAll(List.of(branch, new LabelInstr(com.labels.getFirst(), branch)));
+                    break;
                 }
                 case "$comp-select-$label":{
-
+                    break;
+                }
+                case "1":{
+                    break;
                 }
                 default:{
-                    System.err.println("weird my man");
+                    System.err.println("weird my man : "+neighRule.toString().replace("\"",""));
+                    break;
                 }
             }
         }
@@ -94,12 +109,21 @@ public class SPGenerator implements Generator{
 
     private void evaluteSelfRules(Instruction p) {
         for (JsonValue ruleSelf : rules.getJsonObject(p.getInstrName()).getJsonArray("rule_self")) {
-            switch (ruleSelf.toString().replace("\"\"","\"")){
+            switch (ruleSelf.toString().replace("\"","")){
                 case "must-elect-label":{
-
+                    break;
                 }
                 case "end":{
+                    scope.poll();
+                    break;
                     //
+                }
+                case "else":{
+                    break;
+                }
+                case "switch-if":{
+                    scope.add("if");
+                    break;
                 }
                 default:{
                     throw new IllegalStateException("Unexpected value: " + ruleSelf);
@@ -123,8 +147,6 @@ public class SPGenerator implements Generator{
                 nnames.add(String.valueOf(i));
             }
             rules = reader.read().asJsonObject();
-            var l = rules.entrySet().stream()
-                    .filter(entry -> entry.getValue().asJsonObject().getJsonArray("cdt").isEmpty()).map(Map.Entry::getKey).toList();
             for (int i = 0; i < nodes; i++) {
                 for (String s : rules.keySet()) {
                     if(rules.getJsonObject(s).getJsonArray("cdt").isEmpty()) {
@@ -178,18 +200,31 @@ public class SPGenerator implements Generator{
         return possibleNodes;
     }
 
+    private boolean isSatisfied(String cdt){
+        switch(cdt){
+            case "scope-label": {
+                System.out.println("require label scope");
+                break;
+            }
+            case "scope-if": {
+                System.out.println("require label if");
+                break;
+            }
+
+        }
+    }
+
     private List<Instruction> getPossibleInstructionsForI(List<String> possibleNodes, int i){
         var possibleRules = rules.entrySet().stream()
-                .filter((entry) -> entry.getValue().asJsonObject().getJsonArray("cdt").isEmpty())
+                .filter((entry) -> entry.getValue().asJsonObject().getJsonArray("cdt").stream()
+                        .allMatch(cdt -> isSatisfied(String.valueOf(cdt))))
                 .map(Map.Entry::getKey)
                 .toList();
         ArrayList<Instruction> pInstr = new ArrayList<>();
         for (String ruleName : possibleRules) {
             Instruction instr = switch (ruleName){
-                case "rsend":
-                    yield new SendInstr(possibleNodes);
-                case "rrcv":
-                    yield new ReceiveInstr(possibleNodes);    // should retrieve the one for rif
+                case "rsend": yield new SendInstr(possibleNodes);
+                case "rrcv": yield new ReceiveInstr(possibleNodes);    // should retrieve the one for rif
 //                case "rcall":
 //                    List<String> forbiddenNames = new ArrayList<>();
 //                    if(recursiveVariables.containsKey(String.valueOf(i)))
@@ -198,11 +233,12 @@ public class SPGenerator implements Generator{
 //                    recursiveVariables.computeIfAbsent(String.valueOf(i), k -> new ArrayList<>())
 //                            .add(ins.getName());
 //                    yield ins;
-                case "rend":
-                    yield new EndInstr();
-//            case "rselect": yield new SelectInstr();
-//            case "rbranch": yield new BranchInstr();
-//            case "rlabel":  yield new BranchInstr();    // should retrieve the one for rbranch
+                case "rselect": yield new SelectInstr(possibleNodes);
+                case "rbranch": yield new BranchInstr(possibleNodes);
+                case "rlabel":  yield new BranchInstr(possibleNodes);    // should retrieve the one for rbranch
+                case "rif": yield new IfInstr();
+                case "relse": yield new ElseInstr();
+                case "rend": yield new EndInstr();
                 default:
                     System.err.println("error in rules");
                     yield null;
@@ -211,6 +247,8 @@ public class SPGenerator implements Generator{
         }
         return pInstr;
     }
+
+    Queue<String> scope;
     Comm latestBranch;
     ArrayList<Requirement> scopedRequirements = new ArrayList<>();
     HashMap<String, ArrayList<String>> recursiveVariables = new HashMap<>();

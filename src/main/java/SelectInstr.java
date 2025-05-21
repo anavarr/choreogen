@@ -26,7 +26,11 @@ public class SelectInstr extends CommInstr implements Instruction{
 
     @Override
     public Behaviour generateBehaviour(int node, int range) {
-        return new Comm(String.valueOf(node), randomPick(), Utils.Direction.SELECT, generateLabel());
+        if(destination == null){
+            if (possibleNodes.isEmpty()) return null;
+            destination = randomPick();
+        }
+        return new Comm(String.valueOf(node),destination, Utils.Direction.SELECT, generateLabel());
     }
 
     private String generateLabel(){

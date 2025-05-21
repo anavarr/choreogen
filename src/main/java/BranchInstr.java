@@ -28,7 +28,7 @@ public class BranchInstr extends CommInstr implements Instruction{
     @Override
     public Behaviour generateBehaviour(int node, int range) {
         if(source == null) {
-            if(possibleNodes.isEmpty()) return new End(String.valueOf(node));
+            if(possibleNodes.isEmpty()) return null;
             source = randomPick();
         }
         return new Comm(String.valueOf(node), source, new HashMap<>());

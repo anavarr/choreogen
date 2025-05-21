@@ -5,6 +5,10 @@ import java.util.List;
 
 public class EndInstr implements Instruction{
     String instrName = "rend";
+
+    public EndInstr(){
+
+    }
     @Override
     public List<String> getPossiblesNodes() {
         return List.of();
