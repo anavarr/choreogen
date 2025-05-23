@@ -2,47 +2,46 @@
   "rsend": {
     "rule_self": [],
     "rule_neigh": ["$comp-rrcv"],
-    "cdt": []
+    "cdt": ["scope-main", "scope-label", "scope-then", "scope-else"],
+    "proba": 1
   },
   "rrcv": {
     "rule_self": [],
     "rule_neigh": ["$comp-rsend"],
-    "cdt": []
+    "cdt": ["scope-main", "scope-label", "scope-then", "scope-else"],
+    "proba": 1
   },
 
 
   "rselect": {
     "rule_self": [],
     "rule_neigh": ["$comp-rbranch-rlabel-$label"],
-    "cdt": []
+    "cdt": ["scope-main", "scope-label", "scope-then", "scope-else"],
+    "proba": 1
   },
   "rbranch": {
-    "rule_self": ["must-elect-label"],
+    "rule_self": ["switch-branch"],
     "rule_neigh": [],
-    "cdt": []
+    "cdt": ["scope-main", "scope-label", "scope-then", "scope-else"],
+    "proba": 0.1
   },
   "rlabel": {
-    "rule_self": [""],
+    "rule_self": ["switch-label"],
     "rule_neigh": ["$comp-rselect-$label"],
-    "cdt": ["scope-label"]
+    "cdt": ["scope-branch"],
+    "proba": 0.5
   },
-
-
-  "rif": {
-    "rule_self": ["else","switch-if"],
-    "rule_neigh": [1],
-    "cdt": []
+  "rvoid": {
+    "rule_self": ["endd"],
+    "rule_neigh": [],
+    "cdt": ["scope-branch+present-label"],
+    "proba": 1
   },
-  "relse": {
-    "rule_self": ["switch-if"],
-    "rule_neigh": [1],
-    "cdt": ["scope-if"]
-  },
-
 
   "rend": {
     "rule_self": ["end"],
     "rule_neigh": [],
-    "cdt": []
+    "cdt": ["scope-main", "scope-label", "scope-then", "scope-else"],
+    "proba": 1
   }
 }

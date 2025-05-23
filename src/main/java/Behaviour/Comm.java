@@ -7,7 +7,7 @@ import java.util.Map;
 
 public class Comm extends Behaviour {
     Utils.Direction direction;
-    public List<String> labels = new ArrayList<>();
+    public ArrayList<String> labels = new ArrayList<>();
     String destination;
 
     public Utils.Direction getDirection() {
@@ -29,7 +29,10 @@ public class Comm extends Behaviour {
         super(pr);
         this.destination= dest;
         this.direction = direction;
-        if(label != null) labels.add(label);
+        if(!label.equals("")) {
+            labels.add(label);
+            nextBehaviours.put(label, null);
+        }
     }
 
     public Comm(String pr, String dest, HashMap<String, Behaviour> branches){
@@ -37,7 +40,7 @@ public class Comm extends Behaviour {
         this.destination = dest;
         this.direction = Utils.Direction.BRANCH;
         this.nextBehaviours = branches;
-        this.labels = branches.keySet().stream().toList();
+        this.labels = new ArrayList<>(branches.keySet().stream().toList());
     }
 
     @Override
@@ -67,8 +70,11 @@ public class Comm extends Behaviour {
         if(direction != Utils.Direction.BRANCH && direction != Utils.Direction.SELECT){
             return nextBehaviours.get(";").addBehaviour(nb);
         }else{
-            if(!labels.isEmpty()){
-                nextBehaviours.get(labels.get(0)).addBehaviour(nb);
+            var l = nextBehaviours.entrySet().stream().filter(entry -> entry.getValue() == null).toList();
+            if(l.isEmpty()){
+                nextBehaviours.get(labels.getLast()).addBehaviour(nb);
+            }else{
+                nextBehaviours.put(l.getFirst().getKey(), nb);
             }
         }
         return false;

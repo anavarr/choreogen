@@ -89,7 +89,11 @@ public class Cdt extends Behaviour {
 
     @Override
     public List<Behaviour> getLeaves() {
-        return List.of();
+        if(nextBehaviours.isEmpty()) return List.of(this);
+        var list = new ArrayList<Behaviour>();
+        list.addAll(nextBehaviours.get("then").getLeaves());
+        list.addAll(nextBehaviours.get("else").getLeaves());
+        return list;
     }
 
     public List<Behaviour> getImmediateBranches(){

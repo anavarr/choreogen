@@ -1,5 +1,5 @@
 public interface Generator {
     void generateSystem();
-    void computePossibilities();
+    void computePossibilitiesAtI(int i);
     void collapseAt(int node);
 }

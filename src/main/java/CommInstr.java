@@ -6,7 +6,6 @@ public abstract class CommInstr implements Instruction{
     List<String> possibleNodes = new ArrayList<>();
 
     public String randomPick(){
-        if(possibleNodes.isEmpty()) return null;
         int index = (int)Math.round(Math.random()*(possibleNodes.size()-1));
         return possibleNodes.get(index);
     }

@@ -8,14 +8,7 @@ import java.util.List;
 
 public class BranchInstr extends CommInstr implements Instruction{
     String instrName = "rbranch";
-
-    @Override
-    public String getInstrName() {
-        return instrName;
-    }
-
     String source;
-    List<String> possibleNodes;
 
     public BranchInstr(String source){
         this.source = source;
@@ -23,6 +16,11 @@ public class BranchInstr extends CommInstr implements Instruction{
 
     public BranchInstr(List<String> possibleNodes){
         this.possibleNodes = possibleNodes;
+    }
+
+    @Override
+    public String getInstrName() {
+        return instrName;
     }
 
     @Override
