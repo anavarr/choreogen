@@ -24,11 +24,6 @@ public class SPGenerator implements Generator{
 
     SPGenerator(int nodes){
         this.nodes = nodes;
-        scope = new Stack<>();
-        for (int i = 0; i < nodes; i++) {
-            possibilities.add(new ArrayList<>());
-            requirements.add(new ArrayList<>());
-        }
     }
 
 
@@ -37,36 +32,62 @@ public class SPGenerator implements Generator{
         this.rulesFile = rulesFile;
     }
 
-    @Override
-    public void generateSystem() {
-        for (int i = 0; i < nodes; i++) {
+    class GenerationContext{
+        int node;
+        Behaviour tree = null;
+        Stack<String> scope = new Stack<>();
+        Stack<Comm> latestBranch = new Stack<>();
+        ArrayList<Instruction> possibilities = new ArrayList<>();
+        boolean canBranch = true;
+        ArrayList<ArrayList<Instruction>> scopedRequirement = new ArrayList<>();
+        int currentScopedRequirementIndex = 0;
+        ArrayList<Instruction> requirements = new ArrayList<>();
+        List<String> possibleNodesMask = IntStream.range(0, nodes).boxed().map(String::valueOf).collect(Collectors.toList());
+        GenerationContext(int node){
+            this.node = node;
             scope.add("main");
-            latestBranch = new Stack<>();
-            canBranch = true;
-            scopedRequirements.add(new ArrayList<>());
-            scopedRequirements.get(i).add(new ArrayList<>());
-            currentScopedRequirement = 0;
-            possibleNodesMask = IntStream.range(0, nodes).boxed().map(String::valueOf).collect(Collectors.toList());
-            while(!possibilities.get(i).isEmpty() || !scope.empty()){
-                collapseAt(i);
-                computePossibilitiesAtI(i);
-            }
+            scopedRequirement.add(new ArrayList<>());
         }
     }
+
+    GenerationContext currentCtx;
+
+    @Override
+    public void generateSystem() {
+        ClassLoader classLoader = SPGenerator.class.getClassLoader();
+        try (InputStream fis = classLoader.getResourceAsStream(rulesFile)){
+            JsonReader reader = Json.createReader(fis);
+            rules = reader.read().asJsonObject();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        for (int i = 0; i < nodes; i++) {
+            currentCtx = new GenerationContext(i);
+            generateNode();
+        }
+    }
+
+    private void generateNode(){
+        while(currentCtx.possibilities.isEmpty() || !currentCtx.scope.empty()){
+            computePossibilitiesAtI(currentCtx.node);
+            collapseAt(currentCtx.node);
+        }
+    }
+
 
     @Override
     public void collapseAt(int node){
         String snode = String.valueOf(node);
-        if(!requirements.get(node).isEmpty()) {
-            var requi = requirements.get(node).getFirst();
-            requirements.get(node).remove(requi);
+        if(!currentCtx.requirements.isEmpty()) {
+            var requi = currentCtx.requirements.getFirst();
+            currentCtx.requirements.remove(requi);
                 var b = requi.generateBehaviour(node, nodes);
-            if(system.containsKey(snode)) system.get(snode).addBehaviour(b);
-            else system.put(snode, b);
-        }else if(!possibilities.get(node).isEmpty()){
-            var p = pickRandom(possibilities.get(node));
+            if(currentCtx.tree == null) currentCtx.tree = b;
+            else currentCtx.tree.addBehaviour(b);
+        }else if(!currentCtx.possibilities.isEmpty()){
+            var p = pickRandom(currentCtx.possibilities);
             var b = p.generateBehaviour(node, nodes);
-            if(b instanceof Comm comm && comm.getDirection() == Utils.Direction.BRANCH) latestBranch.push(comm);
+            if(b instanceof Comm comm && comm.getDirection() == Utils.Direction.BRANCH) currentCtx.latestBranch.push(comm);
             if(b == null) {
                 b = new End(String.valueOf(node));
                 p = new EndInstr();
@@ -75,8 +96,8 @@ public class SPGenerator implements Generator{
             evaluteSelfRules(p, node);
             evaluateNeighborRules(p,b, snode);
             if(!(p instanceof LabelInstr)){
-                if(system.containsKey(snode)) system.get(snode).addBehaviour(b);
-                else system.put(snode, b);
+                if(currentCtx.tree == null) currentCtx.tree = b;
+                else currentCtx.tree.addBehaviour(b);
             }
         }
     }
@@ -86,22 +107,22 @@ public class SPGenerator implements Generator{
         for (JsonValue neighRule : neighRules) {
             switch (neighRule.toString().replace("\"","")){
                 case "$comp-rrcv": {
-                    scopedRequirements.get(Integer.parseInt(snode)).get(currentScopedRequirement)
+                    currentCtx.scopedRequirement.get(currentCtx.currentScopedRequirementIndex)
                             .add(new SendInstr(snode));
-                    requirements.get(Integer.parseInt(((Comm)behaviour).getDestination())).
-                            add(new SendInstr(snode));
+//                    requirements.get(Integer.parseInt(((Comm)behaviour).getDestination())).
+//                            add(new SendInstr(snode));
                     break;
                 }
                 case "$comp-rsend":{
-                    scopedRequirements.get(Integer.parseInt(snode)).get(currentScopedRequirement)
+                    currentCtx.scopedRequirement.get(currentCtx.currentScopedRequirementIndex)
                             .add(new ReceiveInstr(snode));
-                    requirements.get(Integer.parseInt(((Comm)behaviour).getDestination())).
-                            add(new ReceiveInstr(snode));
+//                    requirements.get(Integer.parseInt(((Comm)behaviour).getDestination())).
+//                            add(new ReceiveInstr(snode));
                     break;
                 }
                 case "$comp-rbranch-rlabel-$label":{
                     var branch = new BranchInstr(snode);
-                    scopedRequirements.get(Integer.parseInt(snode)).get(currentScopedRequirement)
+                    currentCtx.scopedRequirement.get(currentCtx.currentScopedRequirementIndex)
                             .add(new ReceiveInstr(snode));
 //                    requirements.get(Integer.parseInt(((Comm)behaviour).getDestination()))
 //                            .addAll(List.of(branch, new LabelInstr(com.labels.getFirst(), branch)));
@@ -131,53 +152,49 @@ public class SPGenerator implements Generator{
         for (JsonValue ruleSelf : rules.getJsonObject(p.getInstrName()).getJsonArray("rule_self")) {
             switch (ruleSelf.toString().replace("\"","")){
                 case "end":{
-                    System.out.println("exiting scope : "+scope.pop());
+                    System.out.println("exiting scope : "+currentCtx.scope.pop());
                     break;
                     //
                 }
                 case "endd":{
-                    latestBranch.pop();
-                    scope.pop();
-                    scope.pop();
+                    currentCtx.latestBranch.pop();
+                    currentCtx.scope.pop();
+                    currentCtx.scope.pop();
                     break;
                 }
                 case "elect-nodes":{
                     //when performing a condition, every communication will happen at most with those nodes
                     for (int i = 0; i < nodes; i++) {
-                        if(Math.random()>=0.50 && possibleNodesMask.size() > 1) possibleNodesMask.remove(String.valueOf(i));
-                    }
-                    var nodes = getPossibleNodesForI(node);
-                    for (String s : nodes) {
-                        if(possibleNodesMask.contains(s)){
-                        }
+                        if(Math.random()>=0.50 && currentCtx.possibleNodesMask.size() > 1)
+                            currentCtx.possibleNodesMask.remove(String.valueOf(i));
                     }
                 }
                 case "switch-cdt":{
-                    scope.add("cdt");
-                    currentScopedRequirement ++;
-                    scopedRequirements.get(node).add(new ArrayList<>());
+                    currentCtx.scope.add("cdt");
+                    currentCtx.currentScopedRequirementIndex ++;
+                    currentCtx.scopedRequirement.add(new ArrayList<>());
                     break;
                 }
                 case "switch-then":{
-                    scope.add("then");
-                    currentScopedRequirement ++;
-                    scopedRequirements.get(node).add(new ArrayList<>());
+                    currentCtx.scope.add("then");
+                    currentCtx.currentScopedRequirementIndex ++;
+                    currentCtx.scopedRequirement.add(new ArrayList<>());
                     break;
                 }
                 case "switch-else":{
-                    scope.add("else");
-                    currentScopedRequirement ++;
-                    scopedRequirements.get(node).add(new ArrayList<>());
+                    currentCtx.scope.add("else");
+                    currentCtx.currentScopedRequirementIndex ++;
+                    currentCtx.scopedRequirement.add(new ArrayList<>());
                     break;
                 }
                 case "switch-label":{
-                    scope.add("label");
-                    currentScopedRequirement ++;
-                    scopedRequirements.get(node).add(new ArrayList<>());
+                    currentCtx.scope.add("label");
+                    currentCtx.currentScopedRequirementIndex ++;
+                    currentCtx.scopedRequirement.add(new ArrayList<>());
                     break;
                 }
                 case "switch-branch":{
-                    scope.add("branch");
+                    currentCtx.scope.add("branch");
                     break;
                 }
                 default:{
@@ -188,46 +205,17 @@ public class SPGenerator implements Generator{
         }
     }
 
-    boolean canBranch = true;
     private Instruction pickRandom(List<Instruction> instrs){
         var index = (int)Math.round(Math.random()*(instrs.size()-1));
-        if(scope.size() > 4){
-            canBranch = false;
+        if(currentCtx.scope.size() > 4){
+            currentCtx.canBranch = false;
         }
-        if(!canBranch){
+        if(!currentCtx.canBranch){
             while (instrs.get(index).getInstrName().equals("rbranch")){
                 index = (int)Math.round(Math.random()*(instrs.size()-1));
             }
         }
         return instrs.get(index);
-    }
-
-    public void computeInitialPossibilities() {
-        ClassLoader classLoader = SPGenerator.class.getClassLoader();
-        scope.add("main");
-        try (InputStream fis = classLoader.getResourceAsStream(rulesFile)){
-            JsonReader reader = Json.createReader(fis);
-            var nnames=new ArrayList<String>();
-            for (int i = 0; i < nodes; i++) {
-                nnames.add(String.valueOf(i));
-            }
-            rules = reader.read().asJsonObject();
-            for (int i = 0; i < nodes; i++) {
-                for (String s : rules.keySet()) {
-                    if(rules.getJsonObject(s).getJsonArray("cdt").stream().anyMatch(cdt -> isSatisfied(cdt.toString()))) {
-                        try {
-                            possibilities.get(i).add(Instruction.getIntrForRule(s, String.valueOf(i), nnames));
-                        } catch (Exception e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-                }
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } finally {
-            scope.pop();
-        }
     }
 
     public int choseProcess(){
@@ -240,13 +228,13 @@ public class SPGenerator implements Generator{
 
     @Override
     public void computePossibilitiesAtI(int i){
-        possibilities.set(i, new ArrayList<>());
-        if(scope.empty()) return;
+        currentCtx.possibilities = new ArrayList<>();
+        if(currentCtx.scope.empty()) return;
         var possibleNodes = IntStream.range(i+1, nodes).boxed()
                 .map(String::valueOf)
-                .filter(n -> possibleNodesMask.contains(n))
+                .filter(n -> currentCtx.possibleNodesMask.contains(n))
                 .toList();
-        possibilities.get(i).addAll(getPossibleInstructionsForI(possibleNodes, i));
+        currentCtx.possibilities.addAll(getPossibleInstructionsForI(possibleNodes, i));
     }
 
     private List<String> getPossibleNodesForI(int i){
@@ -263,13 +251,13 @@ public class SPGenerator implements Generator{
     private boolean isSatisfied(String condition){
         var cdts = condition.split("\\+");
 
-        var currentScope = scope.peek();
+        var currentScope = currentCtx.scope.peek();
         var res = true;
         for (String cdt : cdts) {
             if(cdt.contains("scope")) {
                 res = res && currentScope.equals(cdt.replace("\"", "").split("-")[1]);
             }else if(cdt.contains("present-label")){
-                res = res && !latestBranch.peek().nextBehaviours.isEmpty();
+                res = res && !currentCtx.latestBranch.peek().nextBehaviours.isEmpty();
             }else{
                 System.err.println("weird man");
                 return false;
@@ -299,7 +287,7 @@ public class SPGenerator implements Generator{
 //                    yield ins;
                 case "rselect": yield new SelectInstr(possibleNodes);
                 case "rbranch": yield new BranchInstr(possibleNodes);
-                case "rlabel":  yield new LabelInstr(latestBranch.peek());    // should retrieve the one for rbranch
+                case "rlabel":  yield new LabelInstr(currentCtx.latestBranch.peek());    // should retrieve the one for rbranch
                 case "rvoid": yield new VoidInstr();
                 case "rif": yield new IfInstr();
                 case "relse": yield new ElseInstr();
@@ -314,13 +302,7 @@ public class SPGenerator implements Generator{
         return pInstr;
     }
 
-    Behaviour currentTree;
-    Stack<String> scope;
-    Stack<Comm> latestBranch;
-    List<String> possibleNodesMask;
-    int currentScopedRequirement;
     ArrayList<ArrayList<ArrayList<Instruction>>> scopedRequirements = new ArrayList<>();
-    HashMap<String, ArrayList<String>> recursiveVariables = new HashMap<>();
     ArrayList<ArrayList<Instruction>> possibilities = new ArrayList<>();
     ArrayList<ArrayList<Instruction>> requirements = new ArrayList<>();
 }
