@@ -1,10 +1,13 @@
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Stack;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import Behaviour.Behaviour;
 import Behaviour.Utils;
@@ -40,6 +43,10 @@ public class SPGenerator implements Generator{
             scope.add("main");
             latestBranch = new Stack<>();
             canBranch = true;
+            scopedRequirements.add(new ArrayList<>());
+            scopedRequirements.get(i).add(new ArrayList<>());
+            currentScopedRequirement = 0;
+            possibleNodesMask = IntStream.range(0, nodes).boxed().map(String::valueOf).collect(Collectors.toList());
             while(!possibilities.get(i).isEmpty() || !scope.empty()){
                 collapseAt(i);
                 computePossibilitiesAtI(i);
@@ -79,19 +86,31 @@ public class SPGenerator implements Generator{
         for (JsonValue neighRule : neighRules) {
             switch (neighRule.toString().replace("\"","")){
                 case "$comp-rrcv": {
+                    scopedRequirements.get(Integer.parseInt(snode)).get(currentScopedRequirement)
+                            .add(new SendInstr(snode));
                     requirements.get(Integer.parseInt(((Comm)behaviour).getDestination())).
                             add(new SendInstr(snode));
                     break;
                 }
                 case "$comp-rsend":{
+                    scopedRequirements.get(Integer.parseInt(snode)).get(currentScopedRequirement)
+                            .add(new ReceiveInstr(snode));
                     requirements.get(Integer.parseInt(((Comm)behaviour).getDestination())).
                             add(new ReceiveInstr(snode));
                     break;
                 }
                 case "$comp-rbranch-rlabel-$label":{
                     var branch = new BranchInstr(snode);
+                    scopedRequirements.get(Integer.parseInt(snode)).get(currentScopedRequirement)
+                            .add(new ReceiveInstr(snode));
 //                    requirements.get(Integer.parseInt(((Comm)behaviour).getDestination()))
 //                            .addAll(List.of(branch, new LabelInstr(com.labels.getFirst(), branch)));
+                    break;
+                }
+                case "$comp-rselect-right":{
+                    break;
+                }
+                case "$comp-rselect-left":{
                     break;
                 }
                 case "$comp-rselect-$label":{
@@ -122,23 +141,43 @@ public class SPGenerator implements Generator{
                     scope.pop();
                     break;
                 }
-                case "else":{
-                    break;
+                case "elect-nodes":{
+                    //when performing a condition, every communication will happen at most with those nodes
+                    for (int i = 0; i < nodes; i++) {
+                        if(Math.random()>=0.50 && possibleNodesMask.size() > 1) possibleNodesMask.remove(String.valueOf(i));
+                    }
+                    var nodes = getPossibleNodesForI(node);
+                    for (String s : nodes) {
+                        if(possibleNodesMask.contains(s)){
+                        }
+                    }
                 }
-                case "switch-if":{
-                    scope.add("if");
-                    break;
-                }
-                case "switch-label":{
-                    scope.add("label");
-                    break;
-                }
-                case "switch-branch":{
-                    scope.add("branch");
+                case "switch-cdt":{
+                    scope.add("cdt");
+                    currentScopedRequirement ++;
+                    scopedRequirements.get(node).add(new ArrayList<>());
                     break;
                 }
                 case "switch-then":{
                     scope.add("then");
+                    currentScopedRequirement ++;
+                    scopedRequirements.get(node).add(new ArrayList<>());
+                    break;
+                }
+                case "switch-else":{
+                    scope.add("else");
+                    currentScopedRequirement ++;
+                    scopedRequirements.get(node).add(new ArrayList<>());
+                    break;
+                }
+                case "switch-label":{
+                    scope.add("label");
+                    currentScopedRequirement ++;
+                    scopedRequirements.get(node).add(new ArrayList<>());
+                    break;
+                }
+                case "switch-branch":{
+                    scope.add("branch");
                     break;
                 }
                 default:{
@@ -148,6 +187,7 @@ public class SPGenerator implements Generator{
             }
         }
     }
+
     boolean canBranch = true;
     private Instruction pickRandom(List<Instruction> instrs){
         var index = (int)Math.round(Math.random()*(instrs.size()-1));
@@ -202,7 +242,10 @@ public class SPGenerator implements Generator{
     public void computePossibilitiesAtI(int i){
         possibilities.set(i, new ArrayList<>());
         if(scope.empty()) return;
-        var possibleNodes = getPossibleNodesForI(i);
+        var possibleNodes = IntStream.range(i+1, nodes).boxed()
+                .map(String::valueOf)
+                .filter(n -> possibleNodesMask.contains(n))
+                .toList();
         possibilities.get(i).addAll(getPossibleInstructionsForI(possibleNodes, i));
     }
 
@@ -271,10 +314,12 @@ public class SPGenerator implements Generator{
         return pInstr;
     }
 
-
+    Behaviour currentTree;
     Stack<String> scope;
     Stack<Comm> latestBranch;
-
+    List<String> possibleNodesMask;
+    int currentScopedRequirement;
+    ArrayList<ArrayList<ArrayList<Instruction>>> scopedRequirements = new ArrayList<>();
     HashMap<String, ArrayList<String>> recursiveVariables = new HashMap<>();
     ArrayList<ArrayList<Instruction>> possibilities = new ArrayList<>();
     ArrayList<ArrayList<Instruction>> requirements = new ArrayList<>();
