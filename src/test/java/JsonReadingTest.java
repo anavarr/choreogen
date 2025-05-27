@@ -74,7 +74,7 @@ public class JsonReadingTest {
 
     @Test
     public void allButRecursion(){
-        var gen = new SPGenerator(2, "rules_valid_min_select_branch_if.json");
+        var gen = new SPGenerator(1000, "rules_valid_min_select_branch_if.json");
         gen.generateSystem();
         var writer = new SPWriter();
         for (String s : gen.system.keySet()) {

@@ -37,7 +37,6 @@ public class SPGenerator implements Generator{
         int node;
         Behaviour tree = null;
         Stack<String> scope = new Stack<>();
-        Stack<Comm> latestBranch = new Stack<>();
         ArrayList<Instruction> possibilities = new ArrayList<>();
         boolean canBranch = true;
         ArrayList<ArrayList<Instruction>> scopedRequirement = new ArrayList<>();
@@ -57,7 +56,6 @@ public class SPGenerator implements Generator{
             gc.currentScopedRequirementIndex = currentScopedRequirementIndex;
             gc.scopedRequirement = new ArrayList<>(scopedRequirement);
             gc.possibleNodesMask = new ArrayList<>(possibleNodesMask);
-            gc.latestBranch = latestBranch;
             gc.requirements = new ArrayList<>(requirements);
             gc.scope = new Stack<>();
             return gc;
@@ -104,7 +102,6 @@ public class SPGenerator implements Generator{
         }else if(!currentCtx.possibilities.isEmpty()){
             var p = pickRandom(currentCtx.possibilities);
             var b = p.generateBehaviour(node, nodes);
-            if(b instanceof Comm comm && comm.getDirection() == Utils.Direction.BRANCH) currentCtx.latestBranch.push(comm);
             if(b == null) {
                 b = new End(String.valueOf(node));
                 p = new EndInstr();
@@ -301,8 +298,6 @@ public class SPGenerator implements Generator{
         for (String cdt : cdts) {
             if(cdt.contains("scope")) {
                 res = res && currentScope.equals(cdt.replace("\"", "").split("-")[1]);
-            }else if(cdt.contains("present-label")){
-                res = res && !currentCtx.latestBranch.peek().nextBehaviours.isEmpty();
             }else{
                 System.err.println("weird man");
                 return false;
@@ -332,7 +327,6 @@ public class SPGenerator implements Generator{
 //                    yield ins;
                 case "rselect": yield new SelectInstr(possibleNodes);
                 case "rbranch": yield new BranchInstr(possibleNodes);
-                case "rlabel":  yield new LabelInstr(currentCtx.latestBranch.peek());    // should retrieve the one for rbranch
                 case "rif": yield new IfInstr();
                 case "relse": yield new ElseInstr();
                 case "rend": yield new EndInstr();
