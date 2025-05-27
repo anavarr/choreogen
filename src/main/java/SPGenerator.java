@@ -1,16 +1,17 @@
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Stack;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import Behaviour.Behaviour;
 import Behaviour.Utils;
+import Behaviour.Cdt;
 import jakarta.json.*;
 import Behaviour.End;
 import Behaviour.Comm;
@@ -48,6 +49,19 @@ public class SPGenerator implements Generator{
             scope.add("main");
             scopedRequirement.add(new ArrayList<>());
         }
+
+        public GenerationContext reset(){
+            var gc = new GenerationContext(node);
+            gc.possibilities = new ArrayList<>(possibilities);
+            gc.canBranch = canBranch;
+            gc.currentScopedRequirementIndex = currentScopedRequirementIndex;
+            gc.scopedRequirement = new ArrayList<>(scopedRequirement);
+            gc.possibleNodesMask = new ArrayList<>(possibleNodesMask);
+            gc.latestBranch = latestBranch;
+            gc.requirements = new ArrayList<>(requirements);
+            gc.scope = new Stack<>();
+            return gc;
+        }
     }
 
     GenerationContext currentCtx;
@@ -63,12 +77,15 @@ public class SPGenerator implements Generator{
         }
         for (int i = 0; i < nodes; i++) {
             currentCtx = new GenerationContext(i);
+            System.out.println("============= NODE "+i+" ================");
             generateNode();
+            system.put(String.valueOf(i), currentCtx.tree);
         }
     }
 
     private void generateNode(){
-        while(currentCtx.possibilities.isEmpty() || !currentCtx.scope.empty()){
+        computePossibilitiesAtI(currentCtx.node);
+        while(!currentCtx.possibilities.isEmpty() && !currentCtx.scope.empty()){
             computePossibilitiesAtI(currentCtx.node);
             collapseAt(currentCtx.node);
         }
@@ -95,7 +112,7 @@ public class SPGenerator implements Generator{
             //process requirements
             evaluteSelfRules(p, node);
             evaluateNeighborRules(p,b, snode);
-            if(!(p instanceof LabelInstr)){
+            if(p instanceof SendInstr || p instanceof ReceiveInstr || p instanceof SelectInstr || p instanceof EndInstr){
                 if(currentCtx.tree == null) currentCtx.tree = b;
                 else currentCtx.tree.addBehaviour(b);
             }
@@ -156,45 +173,73 @@ public class SPGenerator implements Generator{
                     break;
                     //
                 }
-                case "endd":{
-                    currentCtx.latestBranch.pop();
-                    currentCtx.scope.pop();
-                    currentCtx.scope.pop();
-                    break;
-                }
                 case "elect-nodes":{
                     //when performing a condition, every communication will happen at most with those nodes
                     for (int i = 0; i < nodes; i++) {
                         if(Math.random()>=0.50 && currentCtx.possibleNodesMask.size() > 1)
                             currentCtx.possibleNodesMask.remove(String.valueOf(i));
                     }
+                    break;
                 }
                 case "switch-cdt":{
+                    System.out.println("entering cdt");
                     currentCtx.scope.add("cdt");
                     currentCtx.currentScopedRequirementIndex ++;
                     currentCtx.scopedRequirement.add(new ArrayList<>());
-                    break;
-                }
-                case "switch-then":{
+                    var oldCtx = currentCtx;
+                    currentCtx = currentCtx.reset();
                     currentCtx.scope.add("then");
-                    currentCtx.currentScopedRequirementIndex ++;
-                    currentCtx.scopedRequirement.add(new ArrayList<>());
-                    break;
-                }
-                case "switch-else":{
+                    generateNode();
+                    var thenCtx = currentCtx;
+                    currentCtx = oldCtx;
+                    currentCtx = currentCtx.reset();
                     currentCtx.scope.add("else");
-                    currentCtx.currentScopedRequirementIndex ++;
-                    currentCtx.scopedRequirement.add(new ArrayList<>());
-                    break;
-                }
-                case "switch-label":{
-                    currentCtx.scope.add("label");
-                    currentCtx.currentScopedRequirementIndex ++;
-                    currentCtx.scopedRequirement.add(new ArrayList<>());
+                    generateNode();
+                    var elseCtx= currentCtx;
+                    var hm = new HashMap<String, Behaviour>();
+                    hm.put("then", thenCtx.tree);
+                    hm.put("else", elseCtx.tree);
+                    var cdt = new Cdt(String.valueOf(node), hm, "check X");
+                    currentCtx = oldCtx;
+                    System.out.println("exiting from "+currentCtx.scope.pop());
+                    System.out.println("exiting from "+currentCtx.scope.pop());
+                    if(currentCtx.tree != null) currentCtx.tree.addBehaviour(cdt);
+                    else currentCtx.tree = cdt;
                     break;
                 }
                 case "switch-branch":{
+                    System.out.println("entering branch");
+                    var possibleNodes = getPossibleNodesForI(node);
+                    int index = (int)Math.round(Math.random()*(possibleNodes.size()-1));
+                    String destination = possibleNodes.get(index);
                     currentCtx.scope.add("branch");
+                    currentCtx.currentScopedRequirementIndex ++;
+                    currentCtx.scopedRequirement.add(new ArrayList<>());
+                    ArrayList<GenerationContext> ctxs = new ArrayList<>();
+                    var oldCtx = currentCtx;
+                    currentCtx = currentCtx.reset();
+                    currentCtx.scope.add("label");
+                    generateNode();
+                    ctxs.add(currentCtx);
+                    while(Math.random()>0.3){
+                        currentCtx = oldCtx;
+                        currentCtx = currentCtx.reset();
+                        currentCtx.scope.add("label");
+                        generateNode();
+                        ctxs.add(currentCtx);
+                    }
+                    currentCtx = oldCtx;
+                    System.out.println("exiting from "+currentCtx.scope.pop());
+                    System.out.println("exiting from "+currentCtx.scope.pop());
+                    HashMap<String, Behaviour> bev = new HashMap<String, Behaviour>();
+                    AtomicInteger counter = new AtomicInteger();
+                    var l = ctxs.stream().peek(item -> {
+                        bev.put("myLabel"+counter, item.tree);
+                        counter.getAndIncrement();
+                    }).toList();
+                    Comm branch = new Comm(String.valueOf(node), destination, bev);
+                    if(currentCtx.tree != null) currentCtx.tree.addBehaviour(branch);
+                    else currentCtx.tree = branch;
                     break;
                 }
                 default:{
@@ -207,7 +252,7 @@ public class SPGenerator implements Generator{
 
     private Instruction pickRandom(List<Instruction> instrs){
         var index = (int)Math.round(Math.random()*(instrs.size()-1));
-        if(currentCtx.scope.size() > 4){
+        if(currentCtx.scope.peek().equals("label")){
             currentCtx.canBranch = false;
         }
         if(!currentCtx.canBranch){
@@ -288,7 +333,6 @@ public class SPGenerator implements Generator{
                 case "rselect": yield new SelectInstr(possibleNodes);
                 case "rbranch": yield new BranchInstr(possibleNodes);
                 case "rlabel":  yield new LabelInstr(currentCtx.latestBranch.peek());    // should retrieve the one for rbranch
-                case "rvoid": yield new VoidInstr();
                 case "rif": yield new IfInstr();
                 case "relse": yield new ElseInstr();
                 case "rend": yield new EndInstr();

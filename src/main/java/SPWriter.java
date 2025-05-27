@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import Behaviour.Comm;
+import Behaviour.Cdt;
 import Behaviour.Utils.Direction;
 import Behaviour.End;
 public class SPWriter {
@@ -77,31 +78,14 @@ public class SPWriter {
 //                }else{
 //                }
 //                break;
-//            case Cdt cdt:
-//                //merge it
-//                var branches = cdt.getImmediateBranches();
-//                if(branches.isEmpty()){
-//
-//                }
-//                //two cases : first one is a selection, none is
-//                var selectBranches = branches.stream()
-//                        .filter(el -> {
-//                            if(el instanceof Comm comm){
-//                                return comm.getDirection().equals(Utils.Direction.SELECT);
-//                            }
-//                            return false;
-//                        });
-//                if(selectBranches.count() == branches.size()){
-//                    //all select
-//                    // check that they all have same destination !!!
-//                    var destinations = new HashSet<>(branches.stream().map(el -> ((Comm)el).getDestination()).toList());
-//                    if(destinations.size() > 1) {
-//                        throw new Exception("Can't extract local type as all processes are not selected");
-//                    }
-//                }else{
-//                    //not all select, it is not great
-//                }
-//                break;
+            case Cdt cdt:
+                //merge it
+                currentString.append("\n");
+                currentString.append("If ").append(cdt.getExpr()).append(" Then ");
+                switchIt(cdt.nextBehaviours.get("then"));
+                currentString.append("\nElse");
+                switchIt(cdt.nextBehaviours.get("else"));
+                break;
             case Comm comm:
                 switch (comm.getDirection()){
                     default -> {

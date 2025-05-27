@@ -13,12 +13,12 @@
   },
 
   "rif": {
-    "rule_self": ["switch-cdt", "switch-then", "elect-nodes"],
+    "rule_self": ["elect-nodes","switch-cdt"],
     "rule_neigh": ["$comp-rselect-left"],
     "cdt": ["scope-main", "scope-label"]
   },
   "relse": {
-    "rule_self": ["switch-else"],
+    "rule_self": [""],
     "rule_neigh": ["$comp-rselect-right"],
     "cdt": ["scope-cdt"]
   },
@@ -30,16 +30,10 @@
     "proba": 0.1
   },
   "rlabel": {
-    "rule_self": ["switch-label"],
+    "rule_self": [""],
     "rule_neigh": ["$comp-rselect-$label"],
     "cdt": ["scope-branch"],
     "proba": 0.5
-  },
-  "rvoid": {
-    "rule_self": ["endd"],
-    "rule_neigh": [],
-    "cdt": ["scope-branch+present-label", "scope-else"],
-    "proba": 1
   },
 
   "rend": {

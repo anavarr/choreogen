@@ -34,6 +34,10 @@ public class Cdt extends Behaviour {
         this.expr = expr;
     }
 
+    public String getExpr() {
+        return expr;
+    }
+
     @Override
     public String toString() {
         var s = new StringBuilder("Cdt ").append(expr).append(":");
