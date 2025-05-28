@@ -14,12 +14,12 @@
 
   "rif": {
     "rule_self": ["elect-nodes","switch-cdt"],
-    "rule_neigh": ["$comp-rselect-left"],
+    "rule_neigh": [],
     "cdt": ["scope-main", "scope-label"]
   },
   "relse": {
     "rule_self": [""],
-    "rule_neigh": ["$comp-rselect-right"],
+    "rule_neigh": [],
     "cdt": ["scope-cdt"]
   },
 
@@ -28,12 +28,6 @@
     "rule_neigh": [],
     "cdt": ["scope-main", "scope-label", "scope-then", "scope-else"],
     "proba": 0.1
-  },
-  "rlabel": {
-    "rule_self": [""],
-    "rule_neigh": ["$comp-rselect-$label"],
-    "cdt": ["scope-branch"],
-    "proba": 0.5
   },
 
   "rend": {
