@@ -1,19 +1,24 @@
 import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 
 public class Requirement {
     static String scopeNameCounter = "main";
     String scopeName;
-    List<Requirement> nextRequirements;
+    HashMap<String, Requirement> nextRequirements;
     Instruction instr;
 
     public Requirement(Instruction instr){
         this.instr = instr;
-        this.nextRequirements = new ArrayList<>();
+        this.nextRequirements = new HashMap<>();
     }
 
     public void addRequirement(Requirement req){
-        if(nextRequirements.isEmpty()) nextRequirements.add(req);
-        else nextRequirements.getFirst().addRequirement(req);
+        if(instr instanceof EndInstr) throw new RuntimeException("can't add requirement to end ");
+        if(nextRequirements.isEmpty()) nextRequirements.put(";", req);
+        else nextRequirements.get(";");
+    }
+
+    public void setRequirements(HashMap<String, Requirement> req){
+        this.nextRequirements = req;
     }
 }

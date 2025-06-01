@@ -20,13 +20,13 @@ public class SPGenerator implements Generator{
     int nodes;
     JsonObject rules;
     String rulesFile = "rules_valid.json";
-
+    HashMap<String, Requirement> requirements = new HashMap<>();
+    GenerationContext currentCtx;
     HashMap<String, Behaviour> system = new HashMap<>();
 
     SPGenerator(int nodes){
         this.nodes = nodes;
     }
-
 
     SPGenerator(int nodes, String rulesFile){
         this(nodes);
@@ -56,8 +56,6 @@ public class SPGenerator implements Generator{
         }
     }
 
-    GenerationContext currentCtx;
-
     @Override
     public void generateSystem() {
         ClassLoader classLoader = SPGenerator.class.getClassLoader();
@@ -69,6 +67,7 @@ public class SPGenerator implements Generator{
         }
         for (int i = 0; i < nodes; i++) {
             currentCtx = new GenerationContext(i);
+            currentCtx.currentExternalRequirements = requirements;
             System.out.println("============= NODE "+i+" ================");
             generateNode();
             system.put(String.valueOf(i), currentCtx.tree);
@@ -81,34 +80,73 @@ public class SPGenerator implements Generator{
             computePossibilitiesAtI(currentCtx.node);
             collapseAt(currentCtx.node);
         }
+        requirements = currentCtx.currentExternalRequirements;
     }
 
+    public void collapseRequirement(String snode){
+        var req = requirements.get(snode);
+        if(req.instr.getInstrName().equals("rbranch")){
+            //here
+            var leftBranch = req.nextRequirements.get("left");
+            var rightBranch = req.nextRequirements.get("right");
+            var oldCtx = currentCtx;
+            currentCtx = currentCtx.reset();
+            currentCtx.currentExternalRequirements.put(snode, leftBranch);
+            generateNode();
+            var leftCtx = currentCtx;
+            currentCtx = oldCtx;
+            currentCtx = currentCtx.reset();
+            currentCtx.currentExternalRequirements.put(snode, rightBranch);
+            generateNode();
+            var rightCtx = currentCtx;
+            currentCtx = oldCtx;
+        }else if(req.instr.getInstrName().equals("rif")){
+            //
+        }else{
+            var b = req.instr.generateBehaviour(Integer.parseInt(snode), nodes);
+            // can't be null since everything is determined
+            evaluteSelfRules(req.instr, nodes);
+            evaluateNeighborRules(req.instr, b, snode);
+            if(!req.nextRequirements.isEmpty()){
+                currentCtx.currentExternalRequirements.put(snode, req.nextRequirements.get(";"));
+            }else{
+                currentCtx.currentExternalRequirements.remove(snode);
+            }
+            if(req.instr instanceof SendInstr || req.instr instanceof ReceiveInstr ||
+                    req.instr instanceof SelectInstr || req.instr instanceof EndInstr){
+                if(currentCtx.tree == null) currentCtx.tree = b;
+                else currentCtx.tree.addBehaviour(b);
+            }
+        }
+    }
 
-    @Override
-    public void collapseAt(int node){
-        String snode = String.valueOf(node);
-//        if(!currentCtx.currentRequirement == null) {
-//            var requi = currentCtx.requirements.getFirst();
-//            currentCtx.requirements.remove(requi);
-//                var b = requi.generateBehaviour(node, nodes);
-//            if(currentCtx.tree == null) currentCtx.tree = b;
-//            else currentCtx.tree.addBehaviour(b);
-//        }else
+    private void collapsePossibility(String snode){
         if(!currentCtx.possibilities.isEmpty()){
             var p = pickRandom(currentCtx.possibilities);
-            var b = p.generateBehaviour(node, nodes);
+            var b = p.generateBehaviour(Integer.parseInt(snode), nodes);
             if(b == null) {
                 b = new End(snode);
                 p = new EndInstr();
             }
             //process requirements
-            evaluteSelfRules(p, node);
+            evaluteSelfRules(p, Integer.parseInt(snode));
             evaluateNeighborRules(p,b, snode);
             if(p instanceof SendInstr || p instanceof ReceiveInstr || p instanceof SelectInstr || p instanceof EndInstr){
                 if(currentCtx.tree == null) currentCtx.tree = b;
                 else currentCtx.tree.addBehaviour(b);
             }
         }
+    }
+
+    @Override
+    public void collapseAt(int node){
+        String snode = String.valueOf(node);
+        if(currentCtx.currentExternalRequirements.containsKey(snode)){
+            collapseRequirement(snode);
+        }else{
+            collapsePossibility(snode);
+        }
+
     }
 
     private void evaluateNeighborRules(Instruction instr, Behaviour behaviour, String snode) {
@@ -121,8 +159,7 @@ public class SPGenerator implements Generator{
                     if(currentCtx.currentExternalRequirements.containsKey(destination))
                         currentCtx.currentExternalRequirements.get(destination).addRequirement(req);
                     else
-                        currentCtx.currentExternalRequirements.computeIfAbsent(((Comm) behaviour).getDestination(),
-                            k -> new Requirement(new ReceiveInstr(snode)));
+                        currentCtx.currentExternalRequirements.put(destination, req);
                     break;
                 }
                 case "$comp-rsend":{
@@ -131,8 +168,7 @@ public class SPGenerator implements Generator{
                     if(currentCtx.currentExternalRequirements.containsKey(destination))
                         currentCtx.currentExternalRequirements.get(destination).addRequirement(req);
                     else
-                        currentCtx.currentExternalRequirements.computeIfAbsent(((Comm) behaviour).getDestination(),
-                                k -> new Requirement(new SendInstr(snode)));
+                        currentCtx.currentExternalRequirements.put(destination, req);
                     break;
                 }
                 case "$comp-rbranch-rlabel-$label":{
@@ -168,7 +204,9 @@ public class SPGenerator implements Generator{
                 }
                 case "elect-nodes":{
                     //when performing a condition, every communication will happen at most with those nodes
-                    for (int i = 0; i < nodes; i++) {
+                    currentCtx.possibleNodesMask = currentCtx.possibleNodesMask.stream()
+                            .filter(e -> Integer.parseInt(e) > currentCtx.node).toList();
+                    for (int i = currentCtx.node+1; i < nodes; i++) {
                         if(Math.random()>=0.50 && currentCtx.possibleNodesMask.size() > 1)
                             currentCtx.possibleNodesMask.remove(String.valueOf(i));
                     }
@@ -181,14 +219,17 @@ public class SPGenerator implements Generator{
                     currentCtx = currentCtx.reset();
                     currentCtx.scope.add("then");
                     //generate select for every destination
-                    generateSelection("left");
+                    var destinations = generateSelection("left");
+                    while(destinations.isEmpty() && !getPossibleNodesForI(currentCtx.node).isEmpty()){
+                        destinations = generateSelection("left");
+                    }
                     generateNode();
                     var thenCtx = currentCtx;
                     currentCtx = oldCtx;
                     currentCtx = currentCtx.reset();
                     currentCtx.scope.add("else");
                     //generate select for every destination
-                    generateSelection("right");
+                    generateSelection("right", destinations);
                     generateNode();
                     var elseCtx= currentCtx;
                     var hm = new HashMap<String, Behaviour>();
@@ -200,6 +241,9 @@ public class SPGenerator implements Generator{
                     System.out.println("exiting from "+currentCtx.scope.pop());
                     if(currentCtx.tree != null) currentCtx.tree.addBehaviour(cdt);
                     else currentCtx.tree = cdt;
+                    for (String destination : destinations) {
+                        generateRequirementForCdt(destination, thenCtx, elseCtx);
+                    }
                     break;
                 }
                 case "switch-branch":{
@@ -229,9 +273,10 @@ public class SPGenerator implements Generator{
 //                        ctxs.add(currentCtx);
 //                    }
                     currentCtx = oldCtx;
+                    generateRequirementForBranch(ctxs);
                     System.out.println("exiting from "+currentCtx.scope.pop());
                     System.out.println("exiting from "+currentCtx.scope.pop());
-                    HashMap<String, Behaviour> bev = new HashMap<String, Behaviour>();
+                    HashMap<String, Behaviour> bev = new HashMap<>();
                     AtomicInteger counter = new AtomicInteger();
                     var l = ctxs.stream().peek(item -> {
                         bev.put("myLabel"+counter, item.tree);
@@ -250,12 +295,28 @@ public class SPGenerator implements Generator{
         }
     }
 
-    private void generateSelection(String label){
-        var possibleNodes = getPossibleNodesForI(currentCtx.node);
-        possibleNodes = possibleNodes.stream()
-                .filter(item -> currentCtx.possibleNodesMask.contains(item))
-                .filter(el -> Math.random() > 0.7).toList();
-        for (String possibleNode : possibleNodes) {
+    public void generateRequirementForCdt(String destination, GenerationContext thenCtx, GenerationContext elseCtx){
+        var bi = new BranchInstr(String.valueOf(currentCtx.node));
+        var req = new Requirement(bi);
+        var hm = new HashMap<String, Requirement>();
+        hm.put("left", thenCtx.currentExternalRequirements.get(destination));
+        hm.put("right", elseCtx.currentExternalRequirements.get(destination));
+        req.setRequirements(hm);
+        if(currentCtx.currentExternalRequirements.containsKey(destination)){
+            currentCtx.currentExternalRequirements.get(destination).addRequirement(req);
+        }else{
+            currentCtx.currentExternalRequirements.put(destination, req);
+        }
+    }
+
+    public void generateRequirementForBranch(ArrayList<GenerationContext> ctxs){
+        for (GenerationContext ctx : ctxs) {
+
+        }
+    }
+
+    private void generateSelection(String label, List<String> destinations){
+        for (String possibleNode : destinations) {
             var select = new Comm(String.valueOf(currentCtx.node), possibleNode, Utils.Direction.SELECT, label);
             if (currentCtx.tree == null) {
                 currentCtx.tree = select;
@@ -263,6 +324,15 @@ public class SPGenerator implements Generator{
                 currentCtx.tree.addBehaviour(select);
             }
         }
+    }
+
+    private List<String> generateSelection(String label){
+        var possibleNodes = getPossibleNodesForI(currentCtx.node);
+        possibleNodes = possibleNodes.stream()
+                .filter(item -> currentCtx.possibleNodesMask.contains(item))
+                .filter(el -> Math.random() > 0.7).toList();
+        generateSelection(label, possibleNodes);
+        return possibleNodes;
     }
 
     private Instruction pickRandom(List<Instruction> instrs){
@@ -282,13 +352,6 @@ public class SPGenerator implements Generator{
         return instrs.get(index);
     }
 
-//    public int choseProcess(){
-//        int pr = (int)Math.round(Math.random()*(nodes-1));
-//        while(possibilities.get(pr).isEmpty()){
-//            pr = (int)Math.round(Math.random()*(nodes-1));
-//        }
-//        return pr;
-//    }
 
     @Override
     public void computePossibilitiesAtI(int i){
@@ -302,14 +365,7 @@ public class SPGenerator implements Generator{
     }
 
     private List<String> getPossibleNodesForI(int i){
-//        var possibleNodes = new ArrayList<String>();
-//        for (int i1 = 0; i1 < nodes; i1++) {
-//            if(i1 != i && !(system.containsKey(String.valueOf(i1)) &&
-//                    (system.get(String.valueOf(i1)).getLeaves().getFirst() instanceof End))){
-//                possibleNodes.add(String.valueOf(i1));
-//            }
-//        }
-        return IntStream.range(i, nodes).boxed().map(n -> String.valueOf(n)).toList();
+        return IntStream.range(i+1, nodes).boxed().map(n -> String.valueOf(n)).toList();
     }
 
     private boolean isSatisfied(String condition){
