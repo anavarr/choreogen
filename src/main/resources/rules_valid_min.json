@@ -1,17 +1,17 @@
 {
   "rsend": {
     "rule_self": [],
-    "rule_neigh": ["$comp-receive"],
-    "cdt": []
+    "rule_neigh": ["$comp-rrcv"],
+    "cdt": ["scope-main"]
   },
   "rrcv": {
     "rule_self": [],
-    "rule_neigh": ["$comp-send"],
-    "cdt": []
+    "rule_neigh": ["$comp-rsend"],
+    "cdt": ["scope-main"]
   },
   "rend": {
     "rule_self": ["end"],
     "rule_neigh": [],
-    "cdt": []
+    "cdt": ["scope-main"]
   }
 }

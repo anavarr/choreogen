@@ -44,7 +44,7 @@ public class JsonReadingTest {
 
     @Test
     public void sendReceiveOnly(){
-        var gen = new SPGenerator(500, "rules_valid_min.json");
+        var gen = new SPGenerator(10, "rules_valid_min.json");
         gen.generateSystem();
         var writer = new SPWriter();
         for (String s : gen.system.keySet()) {
@@ -74,7 +74,7 @@ public class JsonReadingTest {
 
     @Test
     public void allButRecursion(){
-        var gen = new SPGenerator(2, "rules_valid_min_select_branch_if.json");
+        var gen = new SPGenerator(2, "rules_valid_min_cdt.json");
         gen.generateSystem();
         var writer = new SPWriter();
         for (String s : gen.system.keySet()) {

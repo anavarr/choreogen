@@ -40,7 +40,7 @@ public class SPGenerator implements Generator{
         ArrayList<Instruction> possibilities = new ArrayList<>();
         boolean canBranch = true;
         HashMap<String, Requirement> currentExternalRequirements = new HashMap<>();
-        List<String> possibleNodesMask = IntStream.range(0, nodes).boxed().map(String::valueOf).collect(Collectors.toList());
+        List<String> possibleNodesMask = IntStream.range(0, nodes).boxed().map(String::valueOf).toList();
         GenerationContext(int node){
             this.node = node;
             scope.add("main");
@@ -76,7 +76,8 @@ public class SPGenerator implements Generator{
 
     private void generateNode(){
         computePossibilitiesAtI(currentCtx.node);
-        while(!currentCtx.possibilities.isEmpty() && !currentCtx.scope.empty()){
+        while((!currentCtx.possibilities.isEmpty() && !currentCtx.scope.empty()) ||
+                currentCtx.currentExternalRequirements.containsKey(String.valueOf(currentCtx.node))){
             computePossibilitiesAtI(currentCtx.node);
             collapseAt(currentCtx.node);
         }
@@ -84,29 +85,42 @@ public class SPGenerator implements Generator{
     }
 
     public void collapseRequirement(String snode){
-        var req = requirements.get(snode);
+        var req = currentCtx.currentExternalRequirements.get(snode);
+        if(req == null) {
+            currentCtx.currentExternalRequirements.remove(snode);
+            return;
+        }
         if(req.instr.getInstrName().equals("rbranch")){
+            var source = ((BranchInstr)req.instr).source;
             //here
             var leftBranch = req.nextRequirements.get("left");
             var rightBranch = req.nextRequirements.get("right");
             var oldCtx = currentCtx;
             currentCtx = currentCtx.reset();
             currentCtx.currentExternalRequirements.put(snode, leftBranch);
+            currentCtx.scope.push("label");
             generateNode();
             var leftCtx = currentCtx;
             currentCtx = oldCtx;
             currentCtx = currentCtx.reset();
             currentCtx.currentExternalRequirements.put(snode, rightBranch);
+            currentCtx.scope.push("label");
             generateNode();
             var rightCtx = currentCtx;
             currentCtx = oldCtx;
+            //create new Branch
+            var hm = new HashMap<String, Behaviour>();
+            hm.put("left", leftCtx.tree);
+            hm.put("right", rightCtx.tree);
+            var b = new Comm(source, String.valueOf(currentCtx.node), hm);
+            if(currentCtx.tree == null) currentCtx.tree = b;
+            else currentCtx.tree.addBehaviour(b);
+            currentCtx.currentExternalRequirements.remove(snode);
         }else if(req.instr.getInstrName().equals("rif")){
             //
         }else{
             var b = req.instr.generateBehaviour(Integer.parseInt(snode), nodes);
             // can't be null since everything is determined
-            evaluteSelfRules(req.instr, nodes);
-            evaluateNeighborRules(req.instr, b, snode);
             if(!req.nextRequirements.isEmpty()){
                 currentCtx.currentExternalRequirements.put(snode, req.nextRequirements.get(";"));
             }else{
@@ -141,7 +155,8 @@ public class SPGenerator implements Generator{
     @Override
     public void collapseAt(int node){
         String snode = String.valueOf(node);
-        if(currentCtx.currentExternalRequirements.containsKey(snode)){
+        if(currentCtx.currentExternalRequirements.containsKey(snode) &&
+                currentCtx.currentExternalRequirements.get(snode) != null){
             collapseRequirement(snode);
         }else{
             collapsePossibility(snode);

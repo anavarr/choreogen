@@ -15,7 +15,7 @@ public class Requirement {
     public void addRequirement(Requirement req){
         if(instr instanceof EndInstr) throw new RuntimeException("can't add requirement to end ");
         if(nextRequirements.isEmpty()) nextRequirements.put(";", req);
-        else nextRequirements.get(";");
+        else nextRequirements.get(";").addRequirement(req);
     }
 
     public void setRequirements(HashMap<String, Requirement> req){

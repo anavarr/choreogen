@@ -1,0 +1,32 @@
+{
+  "rsend": {
+    "rule_self": [],
+    "rule_neigh": ["$comp-rrcv"],
+    "cdt": ["scope-main", "scope-label", "scope-then", "scope-else"],
+    "proba": 1
+  },
+  "rrcv": {
+    "rule_self": [],
+    "rule_neigh": ["$comp-rsend"],
+    "cdt": ["scope-main", "scope-label", "scope-then", "scope-else"],
+    "proba": 1
+  },
+
+  "rif": {
+    "rule_self": ["elect-nodes","switch-cdt"],
+    "rule_neigh": [],
+    "cdt": ["scope-main", "scope-label"]
+  },
+  "relse": {
+    "rule_self": [""],
+    "rule_neigh": [],
+    "cdt": ["scope-cdt"]
+  },
+
+  "rend": {
+    "rule_self": ["end"],
+    "rule_neigh": [],
+    "cdt": ["scope-main", "scope-label", "scope-then", "scope-else"],
+    "proba": 1
+  }
+}
