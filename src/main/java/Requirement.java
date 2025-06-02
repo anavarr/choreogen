@@ -25,4 +25,9 @@ public class Requirement {
     public void setRequirements(HashMap<String, Requirement> req){
         this.nextRequirements = req;
     }
+
+    public boolean hasRequirementId(int id){
+        if(originId == id) return true;
+        return nextRequirements.values().stream().anyMatch(el -> el.hasRequirementId(id));
+    }
 }

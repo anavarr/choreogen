@@ -41,6 +41,7 @@ public class SPGenerator implements Generator{
         boolean canBranch = true;
         HashMap<String, Requirement> currentExternalRequirements = new HashMap<>();
         ArrayList<String> possibleNodesMask = new ArrayList<>(IntStream.range(0, nodes).boxed().map(String::valueOf).toList());
+        int lastRequirementId = -1;
         GenerationContext(int node){
             this.node = node;
             scope.add("main");
@@ -52,6 +53,7 @@ public class SPGenerator implements Generator{
             gc.canBranch = canBranch;
             gc.possibleNodesMask = new ArrayList<>(possibleNodesMask);
             gc.scope = new Stack<>();
+            gc.lastRequirementId = lastRequirementId;
             return gc;
         }
     }
@@ -90,6 +92,7 @@ public class SPGenerator implements Generator{
             currentCtx.currentExternalRequirements.remove(snode);
             return;
         }
+        currentCtx.lastRequirementId = req.originId;
         if(req.instr.getInstrName().equals("rbranch")){
             var source = ((BranchInstr)req.instr).source;
             //here
@@ -132,6 +135,7 @@ public class SPGenerator implements Generator{
                 else currentCtx.tree.addBehaviour(b);
             }
         }
+        currentCtx.lastRequirementId = req.originId;
     }
 
     private void collapsePossibility(String snode){
@@ -235,6 +239,7 @@ public class SPGenerator implements Generator{
                 case "switch-cdt":{
                     System.out.println("entering cdt");
                     currentCtx.scope.add("cdt");
+
                     var oldCtx = currentCtx;
                     currentCtx = currentCtx.reset();
                     currentCtx.scope.add("then");
@@ -244,15 +249,19 @@ public class SPGenerator implements Generator{
                         destinations = generateSelection("left");
                     }
                     generateSelection("left", destinations);
+                    var possibleNodesMask = new ArrayList<>(currentCtx.possibleNodesMask);
                     generateNode();
                     var thenCtx = currentCtx;
+
                     currentCtx = oldCtx;
                     currentCtx = currentCtx.reset();
+                    currentCtx.possibleNodesMask = possibleNodesMask;
                     currentCtx.scope.add("else");
                     //generate select for every destination
                     generateSelection("right", destinations);
                     generateNode();
                     var elseCtx= currentCtx;
+
                     var hm = new HashMap<String, Behaviour>();
                     hm.put("then", thenCtx.tree);
                     hm.put("else", elseCtx.tree);
@@ -382,6 +391,12 @@ public class SPGenerator implements Generator{
                 .map(String::valueOf)
                 .filter(n -> currentCtx.possibleNodesMask.contains(n))
                 .toList();
+//        if(currentCtx.lastRequirementId != -1){
+//            possibleNodes = possibleNodes.stream()
+//                    .filter(p ->
+//                            currentCtx.currentExternalRequirements.get(p)
+//                            .hasRequirementId(currentCtx.lastRequirementId)).toList();
+//        }
         currentCtx.possibilities.addAll(getPossibleInstructionsForI(possibleNodes, i));
     }
 
