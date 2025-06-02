@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import Behaviour.Comm;
+import Behaviour.Cdt;
 import Behaviour.Utils.Direction;
 import Behaviour.End;
 public class SPWriter {
@@ -70,37 +71,21 @@ public class SPWriter {
     }
 
     private void switchIt(Behaviour root) throws Exception {
+        var currentString = genCtx.prgm.getLast();
         switch (root){
 //            case Call call:
 //                if(call.nextBehaviours.isEmpty()){
 //                }else{
 //                }
 //                break;
-//            case Cdt cdt:
-//                //merge it
-//                var branches = cdt.getImmediateBranches();
-//                if(branches.isEmpty()){
-//
-//                }
-//                //two cases : first one is a selection, none is
-//                var selectBranches = branches.stream()
-//                        .filter(el -> {
-//                            if(el instanceof Comm comm){
-//                                return comm.getDirection().equals(Utils.Direction.SELECT);
-//                            }
-//                            return false;
-//                        });
-//                if(selectBranches.count() == branches.size()){
-//                    //all select
-//                    // check that they all have same destination !!!
-//                    var destinations = new HashSet<>(branches.stream().map(el -> ((Comm)el).getDestination()).toList());
-//                    if(destinations.size() > 1) {
-//                        throw new Exception("Can't extract local type as all processes are not selected");
-//                    }
-//                }else{
-//                    //not all select, it is not great
-//                }
-//                break;
+            case Cdt cdt:
+                //merge it
+                currentString.append("\n");
+                currentString.append("If ").append(cdt.getExpr()).append(" Then ");
+                switchIt(cdt.nextBehaviours.get("then"));
+                currentString.append("\nElse");
+                switchIt(cdt.nextBehaviours.get("else"));
+                break;
             case Comm comm:
                 switch (comm.getDirection()){
                     default -> {
@@ -108,22 +93,39 @@ public class SPWriter {
                     }
                     case Direction.VOID, Direction.DUMMY -> throw new IllegalArgumentException();
                     case Direction.SEND -> {
-                        genCtx.prgm.getLast()
+                        currentString
                                 .append("\n")
                                 .append(indexToLetter(comm.getDestination())).append("!").append("myVar")
                                 .append("@!\"\";");
                         if(!comm.nextBehaviours.isEmpty()) switchIt(comm.nextBehaviours.get(";"));
                     }
                     case Direction.RECEIVE -> {
-                        genCtx.prgm.getLast()
+                        currentString
                                 .append("\n")
                                 .append(indexToLetter(comm.getDestination())).append("?").append("myVar")
                                 .append("@?\"\";");
                         if(!comm.nextBehaviours.isEmpty()) switchIt(comm.nextBehaviours.get(";"));
                     }
                     case Direction.BRANCH -> {
+                        currentString.append("\n")
+                                .append(indexToLetter(comm.getDestination())).append("&");
+                        int counter=0;
+                        for (String s : comm.nextBehaviours.keySet()) {
+                            currentString.append("\n{").append("\"").append(s).append("\" :");
+                            switchIt(comm.nextBehaviours.get(s));
+                            currentString.append("\n").append("}");
+                            counter++;
+                            if(counter < comm.nextBehaviours.size()) currentString.append("//");
+                        }
                     }
                     case Direction.SELECT -> {
+                        var label = comm.labels.getFirst();
+                        currentString
+                                .append("\n")
+                                .append(indexToLetter(comm.getDestination())).append("+").append("\"")
+                                .append(label).append("\"")
+                                .append("@+\"\";");
+                        if(!comm.nextBehaviours.isEmpty()) switchIt(comm.nextBehaviours.get(label));
                     }
                 };
                 break;

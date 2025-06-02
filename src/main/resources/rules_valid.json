@@ -17,7 +17,7 @@
   },
   "rbranch": {
     "rule_self": [1],
-    "rule_neigh": ["$comp-select"],
+    "rule_neigh": [],
     "cdt": []
   },
   "rlabel": {

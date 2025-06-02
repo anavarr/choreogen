@@ -23,13 +23,6 @@
     "cdt": ["scope-cdt"]
   },
 
-  "rbranch": {
-    "rule_self": ["switch-branch"],
-    "rule_neigh": [],
-    "cdt": ["scope-main", "scope-label", "scope-then", "scope-else"],
-    "proba": 0.1
-  },
-
   "rend": {
     "rule_self": ["end"],
     "rule_neigh": [],

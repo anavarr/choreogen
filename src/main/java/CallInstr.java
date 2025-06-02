@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CallInstr implements Instruction{
+    String instrName = "rcall";
 
     ArrayList<String> forbiddenNames = new ArrayList<>();
     String name;
@@ -26,6 +27,11 @@ public class CallInstr implements Instruction{
     @Override
     public Boolean removePossibleNode(String node) {
         return null;
+    }
+
+    @Override
+    public String getInstrName() {
+        return instrName;
     }
 
     @Override

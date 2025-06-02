@@ -34,6 +34,10 @@ public class Cdt extends Behaviour {
         this.expr = expr;
     }
 
+    public String getExpr() {
+        return expr;
+    }
+
     @Override
     public String toString() {
         var s = new StringBuilder("Cdt ").append(expr).append(":");
@@ -89,7 +93,11 @@ public class Cdt extends Behaviour {
 
     @Override
     public List<Behaviour> getLeaves() {
-        return List.of();
+        if(nextBehaviours.isEmpty()) return List.of(this);
+        var list = new ArrayList<Behaviour>();
+        list.addAll(nextBehaviours.get("then").getLeaves());
+        list.addAll(nextBehaviours.get("else").getLeaves());
+        return list;
     }
 
     public List<Behaviour> getImmediateBranches(){

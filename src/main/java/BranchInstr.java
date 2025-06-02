@@ -1,12 +1,14 @@
 import Behaviour.Behaviour;
-import jdk.jshell.spi.ExecutionControl;
+import Behaviour.Comm;
+import Behaviour.End;
+import Behaviour.Utils;
 
+import java.util.HashMap;
 import java.util.List;
 
-public class BranchInstr implements Instruction{
-
+public class BranchInstr extends CommInstr implements Instruction{
+    String instrName = "rbranch";
     String source;
-    List<String> possibleNodes;
 
     public BranchInstr(String source){
         this.source = source;
@@ -17,18 +19,16 @@ public class BranchInstr implements Instruction{
     }
 
     @Override
-    public List<String> getPossiblesNodes() {
-        return possibleNodes;
-    }
-
-    @Override
-    public Boolean removePossibleNode(String node) {
-        if(possibleNodes == null) return false;
-        return possibleNodes.remove(node);
+    public String getInstrName() {
+        return instrName;
     }
 
     @Override
     public Behaviour generateBehaviour(int node, int range) {
-        System.err.println("behaviour generation for branch instruction is not implemented");
+        if(source == null) {
+            if(possibleNodes.isEmpty()) return null;
+            source = randomPick();
+        }
+        return new Comm(String.valueOf(node), source, new HashMap<>());
     }
 }

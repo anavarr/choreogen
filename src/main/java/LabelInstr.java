@@ -1,12 +1,14 @@
 import Behaviour.Behaviour;
-
+import Behaviour.Comm;
 import java.util.List;
 
 public class LabelInstr implements Instruction{
+    String instrName = "rlabel";
+    Comm branch;
     String label;
 
-    public LabelInstr(String label){
-        this.label = label;
+    public LabelInstr(Comm branch){
+        this.branch = branch;
     }
 
 
@@ -21,7 +23,22 @@ public class LabelInstr implements Instruction{
     }
 
     @Override
+    public String getInstrName() {
+        return instrName;
+    }
+
+    private String generateLabel(){
+        int counter = 0;
+        String l = "myLabel"+counter;
+        while(branch.nextBehaviours.keySet().contains(l)) l = "myLabel"+counter++;
+        return l;
+    }
+
+    @Override
     public Behaviour generateBehaviour(int node, int range) {
-        return null;
+        if(label == null) label = generateLabel();
+        branch.labels.add(label);
+        branch.nextBehaviours.put(label, null);
+        return branch;
     }
 }

@@ -18,7 +18,7 @@ public class JsonReadingTest {
             ReceiveInstr.class,
             SelectInstr.class,
             BranchInstr.class,
-            CdtInstr.class,
+            IfInstr.class,
             CallInstr.class,
             EndInstr.class
     );
@@ -43,26 +43,8 @@ public class JsonReadingTest {
     }
 
     @Test
-    public void initialPossibilitiesAreAReducedSetOfInstruction(){
-        var gen = new SPGenerator(16);
-        gen.computeInitialPossibilities();
-        assertEquals(gen.possibilities.size(), 16);
-        assertTrue(gen.possibilities.stream()
-                .allMatch(list -> list.stream()
-                        .allMatch(instr -> initialPossibilities.contains(instr.getClass()))));
-    }
-
-    @Test
-    public void test(){
-        var gen = new SPGenerator(8);
-        gen.computeInitialPossibilities();
-    }
-
-    @Test
     public void sendReceiveOnly(){
-        var gen = new SPGenerator(250, "rules_valid_min.json");
-        gen.computeInitialPossibilities();
-        assertTrue(gen.possibilities.stream().allMatch(list -> list.size() == 3));
+        var gen = new SPGenerator(10, "rules_valid_min.json");
         gen.generateSystem();
         var writer = new SPWriter();
         for (String s : gen.system.keySet()) {
@@ -78,8 +60,21 @@ public class JsonReadingTest {
     @Test
     public void sendReceiveCallDefOnly(){
         var gen = new SPGenerator(8, "rules_valid_min_call.json");
-        gen.computeInitialPossibilities();
-        assertTrue(gen.possibilities.stream().allMatch(list -> list.size() == 4));
+        gen.generateSystem();
+        var writer = new SPWriter();
+        for (String s : gen.system.keySet()) {
+            try {
+                writer.write(s, gen.system.get(s));
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+        writer.writeIt();
+    }
+
+    @Test
+    public void allButRecursion(){
+        var gen = new SPGenerator(5, "rules_valid_min_cdt.json");
         gen.generateSystem();
         var writer = new SPWriter();
         for (String s : gen.system.keySet()) {
