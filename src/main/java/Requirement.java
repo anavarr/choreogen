@@ -1,15 +1,19 @@
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Requirement {
     static String scopeNameCounter = "main";
     String scopeName;
     HashMap<String, Requirement> nextRequirements;
     Instruction instr;
+    int originId;
 
-    public Requirement(Instruction instr){
+    public Requirement(Instruction instr, int id){
         this.instr = instr;
         this.nextRequirements = new HashMap<>();
+        this.originId = id;
     }
 
     public void addRequirement(Requirement req){

@@ -23,7 +23,7 @@ public class SPGenerator implements Generator{
     HashMap<String, Requirement> requirements = new HashMap<>();
     GenerationContext currentCtx;
     HashMap<String, Behaviour> system = new HashMap<>();
-
+    static int commCounter = 0;
     SPGenerator(int nodes){
         this.nodes = nodes;
     }
@@ -40,7 +40,7 @@ public class SPGenerator implements Generator{
         ArrayList<Instruction> possibilities = new ArrayList<>();
         boolean canBranch = true;
         HashMap<String, Requirement> currentExternalRequirements = new HashMap<>();
-        List<String> possibleNodesMask = IntStream.range(0, nodes).boxed().map(String::valueOf).toList();
+        ArrayList<String> possibleNodesMask = new ArrayList<>(IntStream.range(0, nodes).boxed().map(String::valueOf).toList());
         GenerationContext(int node){
             this.node = node;
             scope.add("main");
@@ -155,8 +155,7 @@ public class SPGenerator implements Generator{
     @Override
     public void collapseAt(int node){
         String snode = String.valueOf(node);
-        if(currentCtx.currentExternalRequirements.containsKey(snode) &&
-                currentCtx.currentExternalRequirements.get(snode) != null){
+        if(currentCtx.currentExternalRequirements.containsKey(snode)){
             collapseRequirement(snode);
         }else{
             collapsePossibility(snode);
@@ -170,7 +169,8 @@ public class SPGenerator implements Generator{
             switch (neighRule.toString().replace("\"","")){
                 case "$comp-rrcv": {
                     var destination = ((Comm) behaviour).getDestination();
-                    var req = new Requirement(new ReceiveInstr(snode));
+                    var req = new Requirement(new ReceiveInstr(snode), commCounter);
+                    commCounter++;
                     if(currentCtx.currentExternalRequirements.containsKey(destination))
                         currentCtx.currentExternalRequirements.get(destination).addRequirement(req);
                     else
@@ -179,7 +179,8 @@ public class SPGenerator implements Generator{
                 }
                 case "$comp-rsend":{
                     var destination = ((Comm) behaviour).getDestination();
-                    var req = new Requirement(new SendInstr(snode));
+                    var req = new Requirement(new SendInstr(snode), commCounter);
+                    commCounter++;
                     if(currentCtx.currentExternalRequirements.containsKey(destination))
                         currentCtx.currentExternalRequirements.get(destination).addRequirement(req);
                     else
@@ -219,11 +220,15 @@ public class SPGenerator implements Generator{
                 }
                 case "elect-nodes":{
                     //when performing a condition, every communication will happen at most with those nodes
-                    currentCtx.possibleNodesMask = currentCtx.possibleNodesMask.stream()
-                            .filter(e -> Integer.parseInt(e) > currentCtx.node).toList();
+                    currentCtx.possibleNodesMask = new ArrayList<>(currentCtx.possibleNodesMask.stream()
+                            .filter(e -> Integer.parseInt(e) > currentCtx.node).toList());
+                    var toRemove = new ArrayList<String>();
                     for (int i = currentCtx.node+1; i < nodes; i++) {
                         if(Math.random()>=0.50 && currentCtx.possibleNodesMask.size() > 1)
-                            currentCtx.possibleNodesMask.remove(String.valueOf(i));
+                            toRemove.add(String.valueOf(i));
+                    }
+                    for (String s : toRemove) {
+                        currentCtx.possibleNodesMask.remove(s);
                     }
                     break;
                 }
@@ -238,6 +243,7 @@ public class SPGenerator implements Generator{
                     while(destinations.isEmpty() && !getPossibleNodesForI(currentCtx.node).isEmpty()){
                         destinations = generateSelection("left");
                     }
+                    generateSelection("left", destinations);
                     generateNode();
                     var thenCtx = currentCtx;
                     currentCtx = oldCtx;
@@ -256,9 +262,7 @@ public class SPGenerator implements Generator{
                     System.out.println("exiting from "+currentCtx.scope.pop());
                     if(currentCtx.tree != null) currentCtx.tree.addBehaviour(cdt);
                     else currentCtx.tree = cdt;
-                    for (String destination : destinations) {
-                        generateRequirementForCdt(destination, thenCtx, elseCtx);
-                    }
+                    generateRequirementForCdt(destinations, thenCtx, elseCtx);
                     break;
                 }
                 case "switch-branch":{
@@ -310,18 +314,21 @@ public class SPGenerator implements Generator{
         }
     }
 
-    public void generateRequirementForCdt(String destination, GenerationContext thenCtx, GenerationContext elseCtx){
-        var bi = new BranchInstr(String.valueOf(currentCtx.node));
-        var req = new Requirement(bi);
-        var hm = new HashMap<String, Requirement>();
-        hm.put("left", thenCtx.currentExternalRequirements.get(destination));
-        hm.put("right", elseCtx.currentExternalRequirements.get(destination));
-        req.setRequirements(hm);
-        if(currentCtx.currentExternalRequirements.containsKey(destination)){
-            currentCtx.currentExternalRequirements.get(destination).addRequirement(req);
-        }else{
-            currentCtx.currentExternalRequirements.put(destination, req);
+    public void generateRequirementForCdt(List<String> destinations, GenerationContext thenCtx, GenerationContext elseCtx){
+        for (String destination : destinations) {
+            var bi = new BranchInstr(String.valueOf(currentCtx.node));
+            var req = new Requirement(bi, commCounter);
+            var hm = new HashMap<String, Requirement>();
+            hm.put("left", thenCtx.currentExternalRequirements.get(destination));
+            hm.put("right", elseCtx.currentExternalRequirements.get(destination));
+            req.setRequirements(hm);
+            if(currentCtx.currentExternalRequirements.containsKey(destination)){
+                currentCtx.currentExternalRequirements.get(destination).addRequirement(req);
+            }else{
+                currentCtx.currentExternalRequirements.put(destination, req);
+            }
         }
+        commCounter++;
     }
 
     public void generateRequirementForBranch(ArrayList<GenerationContext> ctxs){
@@ -343,11 +350,10 @@ public class SPGenerator implements Generator{
 
     private List<String> generateSelection(String label){
         var possibleNodes = getPossibleNodesForI(currentCtx.node);
-        possibleNodes = possibleNodes.stream()
-                .filter(item -> currentCtx.possibleNodesMask.contains(item))
-                .filter(el -> Math.random() > 0.7).toList();
-        generateSelection(label, possibleNodes);
-        return possibleNodes;
+        currentCtx.possibleNodesMask = new ArrayList<>(
+                currentCtx.possibleNodesMask.stream().filter(el -> Math.random() > 0.7).toList());
+        return possibleNodes.stream()
+                .filter(item -> currentCtx.possibleNodesMask.contains(item)).toList();
     }
 
     private Instruction pickRandom(List<Instruction> instrs){
