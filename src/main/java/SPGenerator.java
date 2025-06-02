@@ -41,7 +41,8 @@ public class SPGenerator implements Generator{
         boolean canBranch = true;
         HashMap<String, Requirement> currentExternalRequirements = new HashMap<>();
         ArrayList<String> possibleNodesMask = new ArrayList<>(IntStream.range(0, nodes).boxed().map(String::valueOf).toList());
-        int lastRequirementId = -1;
+        Requirement lastRequirement = null;
+        Requirement initialRequirementTree;
         GenerationContext(int node){
             this.node = node;
             scope.add("main");
@@ -53,7 +54,7 @@ public class SPGenerator implements Generator{
             gc.canBranch = canBranch;
             gc.possibleNodesMask = new ArrayList<>(possibleNodesMask);
             gc.scope = new Stack<>();
-            gc.lastRequirementId = lastRequirementId;
+            gc.lastRequirement = lastRequirement;
             return gc;
         }
     }
@@ -70,6 +71,8 @@ public class SPGenerator implements Generator{
         for (int i = 0; i < nodes; i++) {
             currentCtx = new GenerationContext(i);
             currentCtx.currentExternalRequirements = requirements;
+            if(requirements.containsKey(String.valueOf(i)))
+                currentCtx.initialRequirementTree = requirements.get(String.valueOf(i));
             System.out.println("============= NODE "+i+" ================");
             generateNode();
             system.put(String.valueOf(i), currentCtx.tree);
@@ -92,7 +95,7 @@ public class SPGenerator implements Generator{
             currentCtx.currentExternalRequirements.remove(snode);
             return;
         }
-        currentCtx.lastRequirementId = req.originId;
+        currentCtx.lastRequirement = req;
         if(req.instr.getInstrName().equals("rbranch")){
             var source = ((BranchInstr)req.instr).source;
             //here
@@ -135,7 +138,7 @@ public class SPGenerator implements Generator{
                 else currentCtx.tree.addBehaviour(b);
             }
         }
-        currentCtx.lastRequirementId = req.originId;
+        currentCtx.lastRequirement = req;
     }
 
     private void collapsePossibility(String snode){
@@ -244,8 +247,10 @@ public class SPGenerator implements Generator{
                     currentCtx = currentCtx.reset();
                     currentCtx.scope.add("then");
                     //generate select for every destination
+                    var oldPossibleMasks = currentCtx.possibleNodesMask;
                     var destinations = generateSelection("left");
                     while(destinations.isEmpty() && !getPossibleNodesForI(currentCtx.node).isEmpty()){
+                        currentCtx.possibleNodesMask = oldPossibleMasks;
                         destinations = generateSelection("left");
                     }
                     generateSelection("left", destinations);
@@ -382,6 +387,17 @@ public class SPGenerator implements Generator{
         return instrs.get(index);
     }
 
+    private List<Requirement> getRequirementChainForNode(String node){
+        var req = currentCtx.currentExternalRequirements.get(node);
+        if(req == null) return List.of();
+        else return req.getRequirementChainUntil(currentCtx.lastRequirement);
+    }
+
+    private List<Requirement> getRequirementChainForCurrentNode(){
+        var req = currentCtx.initialRequirementTree;
+        if(req == null) return List.of();
+        else return req.getRequirementChainUntil(currentCtx.lastRequirement);
+    }
 
     @Override
     public void computePossibilitiesAtI(int i){
@@ -391,6 +407,11 @@ public class SPGenerator implements Generator{
                 .map(String::valueOf)
                 .filter(n -> currentCtx.possibleNodesMask.contains(n))
                 .toList();
+        if(currentCtx.lastRequirement != null){
+            var chain = getRequirementChainForCurrentNode();
+            possibleNodes = possibleNodes.stream()
+                    .filter(n -> getRequirementChainForNode(String.valueOf(n)).containsAll(chain)).toList();
+        }
 //        if(currentCtx.lastRequirementId != -1){
 //            possibleNodes = possibleNodes.stream()
 //                    .filter(p ->
