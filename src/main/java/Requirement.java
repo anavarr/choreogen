@@ -18,6 +18,7 @@ public class Requirement {
     }
 
     public void addRequirement(Requirement req){
+        if(req == this) return;
         if(instr instanceof EndInstr) throw new RuntimeException("can't add requirement to end ");
         if(nextRequirements.isEmpty()) nextRequirements.put(";", req);
         else{
@@ -41,6 +42,7 @@ public class Requirement {
         ArrayList<Requirement> list = new ArrayList<>();
         if(this == lastRequirement) return List.of(this);
         for (Requirement value : nextRequirements.values()) {
+            if(value == null) continue;
             var l = value.getRequirementChainUntil(lastRequirement);
             if(!l.isEmpty()){
                 list.add(this);
@@ -48,5 +50,19 @@ public class Requirement {
             }
         }
         return list;
+    }
+
+    public Instruction getInstr() {
+        return instr;
+    }
+
+    @Override
+    public String toString() {
+        String s = instr.getInstrName();
+        for (Requirement value : nextRequirements.values()) {
+            if(s == null) continue;
+            else s = s+"\n\t"+value.toString();
+        }
+        return s;
     }
 }
