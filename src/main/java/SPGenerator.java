@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import Behaviour.Behaviour;
@@ -91,6 +90,16 @@ public class SPGenerator implements Generator{
         requirements = currentCtx.currentExternalRequirements;
     }
 
+    @Override
+    public void collapseAt(int node){
+        String snode = String.valueOf(node);
+        if(currentCtx.currentExternalRequirements.containsKey(snode)){
+            collapseRequirement(snode);
+        }else{
+            collapsePossibility(snode);
+        }
+    }
+
     public void collapseRequirement(String snode){
         var req = currentCtx.currentExternalRequirements.get(snode);
         if(req == null) {
@@ -152,7 +161,7 @@ public class SPGenerator implements Generator{
                 p = new EndInstr();
             }
             //process requirements
-            evaluteSelfRules(p, Integer.parseInt(snode));
+            p = evaluteSelfRules(p, Integer.parseInt(snode));
             evaluateNeighborRules(p,b, snode);
             if(p instanceof SendInstr || p instanceof ReceiveInstr || p instanceof SelectInstr || p instanceof EndInstr){
                 if(currentCtx.tree == null) currentCtx.tree = b;
@@ -161,90 +170,7 @@ public class SPGenerator implements Generator{
         }
     }
 
-    @Override
-    public void collapseAt(int node){
-        String snode = String.valueOf(node);
-        if(currentCtx.currentExternalRequirements.containsKey(snode)){
-            collapseRequirement(snode);
-        }else{
-            collapsePossibility(snode);
-        }
-
-    }
-
-    private void evaluateNeighborRules(Instruction instr, Behaviour behaviour, String snode) {
-        var neighRules = rules.getJsonObject(instr.getInstrName()).getJsonArray("rule_neigh");
-        for (JsonValue neighRule : neighRules) {
-            switch (neighRule.toString().replace("\"","")){
-                case "$comp-rrcv": {
-                    var destination = ((Comm) behaviour).getDestination();
-                    var req = new Requirement(new ReceiveInstr(snode), commCounter);
-                    commCounter++;
-                    if(currentCtx.lastRequirement != null){
-                        //find good place to put it
-                        var reqChain = getRequirementChainForCurrentNode();
-                        var destinationReqChain = getRequirementChainForNode(destination);
-                        var commonChain = new ArrayList<>();
-                        for (int i = 0; i < reqChain.size(); i++) {
-                            if(destinationReqChain.size()<i-1) break;
-                            if(reqChain.get(i).equals(destinationReqChain.get(i))) commonChain.add(reqChain.get(i));
-                            else break;
-                        }
-                    }else {
-                        if (currentCtx.currentExternalRequirements.containsKey(destination))
-                            currentCtx.currentExternalRequirements.get(destination).addRequirement(req);
-                        else
-                            currentCtx.currentExternalRequirements.put(destination, req);
-                    }
-                    break;
-                }
-                case "$comp-rsend":{
-                    var destination = ((Comm) behaviour).getDestination();
-                    var req = new Requirement(new SendInstr(snode), commCounter);
-                    commCounter++;
-                    if(currentCtx.lastRequirement != null){
-                        //find good place to put it
-                        var reqChain = getRequirementChainForCurrentNode();
-                        var destinationReqChain = getRequirementChainForNode(destination);
-                        var commonChain = new ArrayList<>();
-                        for (int i = 0; i < reqChain.size(); i++) {
-                            if(destinationReqChain.size()<i-1) break;
-                            if(reqChain.get(i).equals(destinationReqChain.get(i))) commonChain.add(reqChain.get(i));
-                            else break;
-                        }
-
-                    }else{
-                        if(currentCtx.currentExternalRequirements.containsKey(destination))
-                            currentCtx.currentExternalRequirements.get(destination).addRequirement(req);
-                        else
-                            currentCtx.currentExternalRequirements.put(destination, req);
-                    }
-                    break;
-                }
-                case "$comp-rbranch-rlabel-$label":{
-                    break;
-                }
-                case "$comp-rselect-right":{
-                    break;
-                }
-                case "$comp-rselect-left":{
-                    break;
-                }
-                case "$comp-rselect-$label":{
-                    break;
-                }
-                case "1":{
-                    break;
-                }
-                default:{
-                    System.err.println("weird my man : "+neighRule.toString().replace("\"",""));
-                    break;
-                }
-            }
-        }
-    }
-
-    private void evaluteSelfRules(Instruction p, int node) {
+    private Instruction evaluteSelfRules(Instruction p, int node) {
         for (JsonValue ruleSelf : rules.getJsonObject(p.getInstrName()).getJsonArray("rule_self")) {
             switch (ruleSelf.toString().replace("\"","")){
                 case "end":{
@@ -276,8 +202,7 @@ public class SPGenerator implements Generator{
                     //generate select for every destination
                     var destinations = getPossibleNodesForI(currentCtx.node).stream()
                             .filter(item -> currentCtx.possibleNodesMask.contains(item)).toList();
-                    if(destinations.isEmpty()) return;
-
+                    if(destinations.isEmpty()) return new EndInstr();
                     generateSelection("left", destinations);
                     generateNode();
                     var thenCtx = currentCtx;
@@ -293,13 +218,15 @@ public class SPGenerator implements Generator{
                     var hm = new HashMap<String, Behaviour>();
                     hm.put("then", thenCtx.tree);
                     hm.put("else", elseCtx.tree);
-                    var cdt = new Cdt(String.valueOf(node), hm, "check X");
+                    var cdt = new Cdt(String.valueOf(node), hm, "myCondition");
                     currentCtx = oldCtx;
                     System.out.println("exiting from "+currentCtx.scope.pop());
                     System.out.println("exiting from "+currentCtx.scope.pop());
-                    if(currentCtx.tree != null) currentCtx.tree.addBehaviour(cdt);
-                    else currentCtx.tree = cdt;
-                    generateRequirementForCdt(destinations, thenCtx, elseCtx);
+
+                    if(generateRequirementForCdt(destinations, thenCtx, elseCtx)){
+                        if(currentCtx.tree != null) currentCtx.tree.addBehaviour(cdt);
+                        else currentCtx.tree = cdt;
+                    }
                     break;
                 }
                 case "switch-branch":{
@@ -349,9 +276,89 @@ public class SPGenerator implements Generator{
 
             }
         }
+        return p;
     }
 
-    public void generateRequirementForCdt(List<String> destinations, GenerationContext thenCtx, GenerationContext elseCtx){
+    private void evaluateNeighborRules(Instruction instr, Behaviour behaviour, String snode) {
+        var neighRules = rules.getJsonObject(instr.getInstrName()).getJsonArray("rule_neigh");
+        for (JsonValue neighRule : neighRules) {
+            switch (neighRule.toString().replace("\"","")){
+                case "$comp-rrcv": {
+                    var destination = ((SendInstr) instr).destination;
+                    var req = new Requirement(new ReceiveInstr(snode), commCounter);
+                    commCounter++;
+                    insertRequirement(destination, req);
+                    break;
+                }
+                case "$comp-rsend":{
+                    var destination = ((ReceiveInstr) instr).source;
+                    var req = new Requirement(new SendInstr(snode), commCounter);
+                    commCounter++;
+                    insertRequirement(destination, req);
+                    break;
+                }
+                case "$comp-rbranch-rlabel-$label":{
+                    break;
+                }
+                case "$comp-rselect-right":{
+                    break;
+                }
+                case "$comp-rselect-left":{
+                    break;
+                }
+                case "$comp-rselect-$label":{
+                    break;
+                }
+                case "1":{
+                    break;
+                }
+                default:{
+                    System.err.println("weird my man : "+neighRule.toString().replace("\"",""));
+                    break;
+                }
+            }
+        }
+    }
+
+    private void insertRequirement(String destination, Requirement req) {
+        if(currentCtx.lastRequirement == null && !currentCtx.currentExternalRequirements.containsKey(destination)){
+            //no requirements on either side, can just put it
+            currentCtx.currentExternalRequirements.put(destination, req);
+        }else if(currentCtx.lastRequirement == null && currentCtx.currentExternalRequirements.containsKey(destination)){
+            //current has no requirement but target has, I can either put requirement at the end of all its branch or before its first requirement
+            if(Math.random() < 0.5){
+                // put it at the end of every branch
+                currentCtx.currentExternalRequirements.get(destination).addRequirementBroadCast(req);
+            }else{
+                req.addRequirementBroadCast(currentCtx.currentExternalRequirements.get(destination));
+                // put it at the top of the requirements
+            }
+        }else if(currentCtx.lastRequirement != null && !currentCtx.currentExternalRequirements.containsKey(destination)){
+            //current node has requirement but other has not, I can't put it anywhere !
+            // what if I am in a branch, other process will expect a message from every branch
+            var branchingChain = getBranchingRequirementChainForCurrentNode();
+            if(branchingChain.isEmpty()){
+                //no branching, I can put it anywhere
+                currentCtx.currentExternalRequirements.put(destination, req);
+            }else{
+                throw new RuntimeException("no way branch");
+                // branchings, I can't put it anywhere unless I add the same communication to all the branches of current
+            }
+        }else{
+            throw new RuntimeException("no way interactions");
+            // current has requirements and target has requirement
+//            var reqChain = getRequirementChainForCurrentNode();
+//            var destinationReqChain = getRequirementChainForNode(destination);
+//            var commonChain = new ArrayList<>();
+//            for (int i = 0; i < reqChain.size(); i++) {
+//                if(destinationReqChain.size()<i-1) break;
+//                if(reqChain.get(i).equals(destinationReqChain.get(i))) commonChain.add(reqChain.get(i));
+//                else break;
+//            }
+        }
+    }
+
+    public boolean generateRequirementForCdt(List<String> destinations, GenerationContext thenCtx, GenerationContext elseCtx){
         for (String destination : destinations) {
             var bi = new BranchInstr(String.valueOf(currentCtx.node));
             var req = new Requirement(bi, commCounter);
@@ -359,13 +366,10 @@ public class SPGenerator implements Generator{
             hm.put("left", thenCtx.currentExternalRequirements.get(destination));
             hm.put("right", elseCtx.currentExternalRequirements.get(destination));
             req.setRequirements(hm);
-            if(currentCtx.currentExternalRequirements.containsKey(destination)){
-                currentCtx.currentExternalRequirements.get(destination).addRequirement(req);
-            }else{
-                currentCtx.currentExternalRequirements.put(destination, req);
-            }
+            insertRequirement(destination, req);
         }
         commCounter++;
+        return true;
     }
 
     public void generateRequirementForBranch(ArrayList<GenerationContext> ctxs){
@@ -384,7 +388,6 @@ public class SPGenerator implements Generator{
             }
         }
     }
-
 
     private Instruction pickRandom(List<Instruction> instrs){
         var index = (int)Math.round(Math.random()*(instrs.size()-1));
@@ -414,7 +417,6 @@ public class SPGenerator implements Generator{
         return getRequirementUntilReq(currentCtx.currentExternalRequirements.get(node), currentCtx.lastRequirement);
     }
 
-
     private List<Requirement> getRequirementChainForCurrentNode(){
         return getRequirementUntilReq(currentCtx.initialRequirementTree, currentCtx.lastRequirement);
     }
@@ -423,6 +425,7 @@ public class SPGenerator implements Generator{
         return getRequirementUntilReq(currentCtx.initialRequirementTree, currentCtx.lastRequirement)
             .stream().filter(el -> el.getInstr().getInstrName().equals("rbranch")).toList();
     }
+
     private List<Requirement> getBranchingRequirementChainForNode(String node){
         return getRequirementUntilReq(currentCtx.currentExternalRequirements.get(node), currentCtx.lastRequirement)
             .stream().filter(el -> el.getInstr().getInstrName().equals("rbranch")).toList();
@@ -432,10 +435,7 @@ public class SPGenerator implements Generator{
     public void computePossibilitiesAtI(int i){
         currentCtx.possibilities = new ArrayList<>();
         if(currentCtx.scope.empty()) return;
-        var possibleNodes = IntStream.range(i+1, nodes).boxed()
-                .map(String::valueOf)
-                .filter(n -> currentCtx.possibleNodesMask.contains(n))
-                .toList();
+        var possibleNodes = getPossibleNodesForI(i);
         if(currentCtx.lastRequirement != null){
             var branchingChain = getBranchingRequirementChainForCurrentNode();
             possibleNodes = possibleNodes.stream()
@@ -444,17 +444,37 @@ public class SPGenerator implements Generator{
                             branchingChain) != -1)
                     .toList();
         }
-//        if(currentCtx.lastRequirementId != -1){
-//            possibleNodes = possibleNodes.stream()
-//                    .filter(p ->
-//                            currentCtx.currentExternalRequirements.get(p)
-//                            .hasRequirementId(currentCtx.lastRequirementId)).toList();
-//        }
         currentCtx.possibilities.addAll(getPossibleInstructionsForI(possibleNodes, i));
     }
 
     private List<String> getPossibleNodesForI(int i){
-        return IntStream.range(i+1, nodes).boxed().map(n -> String.valueOf(n)).toList();
+        return IntStream.range(i+1, nodes).boxed().map(String::valueOf)
+                .filter(n -> {
+                    if(currentCtx.lastRequirement == null && !currentCtx.currentExternalRequirements.containsKey(n)){
+                        // no requirements on either side, can just put it
+                        return true;
+                    }else if(currentCtx.lastRequirement == null && currentCtx.currentExternalRequirements.containsKey(n)){
+                        // current node has no requirement, but target has some
+                        // I should put it on top or at the end of every branch
+                        return false;
+                    }else if(currentCtx.lastRequirement != null && !currentCtx.currentExternalRequirements.containsKey(n)){
+                        // current node has requirement but other has not, I can't put it anywhere !
+                        // what if I am in a branch, other process will expect a message from every branch
+                        var branchingChain = getBranchingRequirementChainForCurrentNode();
+                        if(branchingChain.isEmpty()){
+                            // no branching, I can put it anywhere
+                            return true;
+                        }else{
+                            // branchings, I can't put it anywhere unless I add the same communication to all the branches of current
+                            return false;
+                        }
+                    }else{
+                        // they both have requirements, can't
+                        return false;
+                    }
+                })
+                .filter(n -> currentCtx.possibleNodesMask.contains(n))
+                .toList();
     }
 
     private boolean isSatisfied(String condition){

@@ -111,9 +111,9 @@ public class SPWriter {
                                 .append(indexToLetter(comm.getDestination())).append("&");
                         int counter=0;
                         for (String s : comm.nextBehaviours.keySet()) {
-                            currentString.append("\n{").append("\"").append(s).append("\" :");
+                            currentString.append("\n{").append("\"").append(s).append("\" :Some(");
                             switchIt(comm.nextBehaviours.get(s));
-                            currentString.append("\n").append("}");
+                            currentString.append("\n").append(")}");
                             counter++;
                             if(counter < comm.nextBehaviours.size()) currentString.append("//");
                         }

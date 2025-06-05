@@ -1,6 +1,7 @@
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -17,16 +18,16 @@ public class Requirement {
         this.originId = id;
     }
 
-    public void addRequirement(Requirement req){
-        if(req == this) return;
+    public void addRequirementBroadCast(Requirement req){if(req == this) return;
         if(instr instanceof EndInstr) throw new RuntimeException("can't add requirement to end ");
         if(nextRequirements.isEmpty()) nextRequirements.put(";", req);
         else{
             nextRequirements.entrySet().forEach(entry -> {
-                if (entry.getValue() != null) entry.getValue().addRequirement(req);
+                if (entry.getValue() != null) entry.getValue().addRequirementBroadCast(req);
                 else nextRequirements.put(entry.getKey(), req);
             });
         }
+
     }
 
     public void setRequirements(HashMap<String, Requirement> req){
@@ -59,9 +60,17 @@ public class Requirement {
     @Override
     public String toString() {
         String s = instr.getInstrName();
-        for (Requirement value : nextRequirements.values()) {
+        var d = "";
+        if(instr instanceof SendInstr si){
+            d=si.destination;
+        }else if(instr instanceof ReceiveInstr ris){
+            d = ris.source;
+        }else if(instr instanceof BranchInstr bis){
+            d = bis.source;
+        }
+        for (Map.Entry<String, Requirement> e : nextRequirements.entrySet()) {
             if(s == null) continue;
-            else s = s+"\n\t"+value.toString();
+            else s = s+" "+d+"\n\t"+e.getKey()+"\n\t\t"+e.getValue().toString();
         }
         return s;
     }
