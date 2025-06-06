@@ -50,11 +50,11 @@ public class SPWriter {
         this.process = process;
         genCtx.prgm.add(new StringBuilder());
         if (genCtx.prgm.size() > 1) {
-            genCtx.prgm.getLast().append("|");
+            genCtx.prgm.getLast().append("\n|\n");
         }
         genCtx.prgm.getLast().append("\n").append(indexToLetter(process)).append("[");
-        switchIt(root);
-        genCtx.prgm.getLast().append("]");
+        switchIt(root,"\t");
+        genCtx.prgm.getLast().append("\n]");
         return true;
     }
 
@@ -70,7 +70,7 @@ public class SPWriter {
         }
     }
 
-    private void switchIt(Behaviour root) throws Exception {
+    private void switchIt(Behaviour root, String prefix) throws Exception {
         var currentString = genCtx.prgm.getLast();
         switch (root){
 //            case Call call:
@@ -80,11 +80,11 @@ public class SPWriter {
 //                break;
             case Cdt cdt:
                 //merge it
-                currentString.append("\n");
-                currentString.append("If ").append(cdt.getExpr()).append(" Then ");
-                switchIt(cdt.nextBehaviours.get("then"));
-                currentString.append("\nElse");
-                switchIt(cdt.nextBehaviours.get("else"));
+                currentString.append(prefix+"\n");
+                currentString.append(prefix+"If ").append(cdt.getExpr()).append(" Then ");
+                switchIt(cdt.nextBehaviours.get("then"), prefix+"\t");
+                currentString.append("\n").append(prefix).append("Else");
+                switchIt(cdt.nextBehaviours.get("else"), prefix+"\t");
                 break;
             case Comm comm:
                 switch (comm.getDirection()){
@@ -95,42 +95,43 @@ public class SPWriter {
                     case Direction.SEND -> {
                         currentString
                                 .append("\n")
-                                .append(indexToLetter(comm.getDestination())).append("!").append("myVar")
+                                .append(prefix).append(indexToLetter(comm.getDestination())).append("!").append("myVar")
                                 .append("@!\"\";");
-                        if(!comm.nextBehaviours.isEmpty()) switchIt(comm.nextBehaviours.get(";"));
+                        if(!comm.nextBehaviours.isEmpty()) switchIt(comm.nextBehaviours.get(";"),prefix);
                     }
                     case Direction.RECEIVE -> {
                         currentString
                                 .append("\n")
-                                .append(indexToLetter(comm.getDestination())).append("?").append("myVar")
+                                .append(prefix).append(indexToLetter(comm.getDestination())).append("?").append("myVar")
                                 .append("@?\"\";");
-                        if(!comm.nextBehaviours.isEmpty()) switchIt(comm.nextBehaviours.get(";"));
+                        if(!comm.nextBehaviours.isEmpty()) switchIt(comm.nextBehaviours.get(";"), prefix);
                     }
                     case Direction.BRANCH -> {
                         currentString.append("\n")
-                                .append(indexToLetter(comm.getDestination())).append("&");
+                                .append(prefix).append(indexToLetter(comm.getDestination())).append("&");
                         int counter=0;
                         for (String s : comm.nextBehaviours.keySet()) {
-                            currentString.append("\n{").append("\"").append(s).append("\" :Some(");
-                            switchIt(comm.nextBehaviours.get(s));
-                            currentString.append("\n").append(")}");
+                            currentString.append("\n").append(prefix).append("{\"").append(s).append("\" :Some(");
+                            switchIt(comm.nextBehaviours.get(s), prefix+"\t");
+                            currentString.append("\n").append("\t").append(")}");
                             counter++;
-                            if(counter < comm.nextBehaviours.size()) currentString.append("//");
+                            if(counter < comm.nextBehaviours.size()) currentString.append("\n").append(prefix).append("//");
                         }
                     }
                     case Direction.SELECT -> {
                         var label = comm.labels.getFirst();
                         currentString
                                 .append("\n")
+                                .append(prefix)
                                 .append(indexToLetter(comm.getDestination())).append("+").append("\"")
                                 .append(label).append("\"")
                                 .append("@+\"\";");
-                        if(!comm.nextBehaviours.isEmpty()) switchIt(comm.nextBehaviours.get(label));
+                        if(!comm.nextBehaviours.isEmpty()) switchIt(comm.nextBehaviours.get(label), prefix);
                     }
                 };
                 break;
             case End end:
-                genCtx.prgm.getLast().append("\n End");
+                genCtx.prgm.getLast().append("\n").append(prefix).append("End");
                 break;
             default:
                 throw new IllegalStateException("Unexpected value: " + root);

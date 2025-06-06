@@ -74,13 +74,14 @@ public class JsonReadingTest {
 
     @Test
     public void allButRecursion(){
-        var gen = new SPGenerator(5, "rules_valid_min_cdt.json");
+        var gen = new SPGenerator(10, "rules_valid_min_cdt.json");
         gen.generateSystem();
         var writer = new SPWriter();
         for (String s : gen.system.keySet()) {
             try {
                 writer.write(s, gen.system.get(s));
             } catch (Exception e) {
+                var item = gen.system.get(s);
                 throw new RuntimeException(e);
             }
         }

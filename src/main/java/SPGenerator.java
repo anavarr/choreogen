@@ -56,6 +56,7 @@ public class SPGenerator implements Generator{
             gc.possibleNodesMask = new ArrayList<>(possibleNodesMask);
             gc.scope = new Stack<>();
             gc.lastRequirement = lastRequirement;
+            gc.currentExternalRequirements = new HashMap<>(currentExternalRequirements);
             return gc;
         }
     }
@@ -129,7 +130,7 @@ public class SPGenerator implements Generator{
             var hm = new HashMap<String, Behaviour>();
             hm.put("left", leftCtx.tree);
             hm.put("right", rightCtx.tree);
-            var b = new Comm(source, String.valueOf(currentCtx.node), hm);
+            var b = new Comm(String.valueOf(currentCtx.node), source, hm);
             if(currentCtx.tree == null) currentCtx.tree = b;
             else currentCtx.tree.addBehaviour(b);
             currentCtx.currentExternalRequirements.remove(snode);
@@ -436,6 +437,10 @@ public class SPGenerator implements Generator{
         currentCtx.possibilities = new ArrayList<>();
         if(currentCtx.scope.empty()) return;
         var possibleNodes = getPossibleNodesForI(i);
+        if(possibleNodes.isEmpty()) {
+            currentCtx.possibilities.add(new EndInstr());
+            return;
+        }
         if(currentCtx.lastRequirement != null){
             var branchingChain = getBranchingRequirementChainForCurrentNode();
             possibleNodes = possibleNodes.stream()
