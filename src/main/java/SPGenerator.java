@@ -162,7 +162,17 @@ public class SPGenerator implements Generator{
                 p = new EndInstr();
             }
             //process requirements
-            p = evaluteSelfRules(p, Integer.parseInt(snode));
+            var p1 = evaluteSelfRules(p, Integer.parseInt(snode));
+            while(p1 != null){
+                b = p1.generateBehaviour(Integer.parseInt(snode), nodes);
+                if(b == null) {
+                    b = new End(snode);
+                    p1 = new EndInstr();
+                }
+                p = p1;
+                p1 = evaluteSelfRules(p, Integer.parseInt(snode));
+            }
+
             evaluateNeighborRules(p,b, snode);
             if(p instanceof SendInstr || p instanceof ReceiveInstr || p instanceof SelectInstr || p instanceof EndInstr){
                 if(currentCtx.tree == null) currentCtx.tree = b;
@@ -175,7 +185,8 @@ public class SPGenerator implements Generator{
         for (JsonValue ruleSelf : rules.getJsonObject(p.getInstrName()).getJsonArray("rule_self")) {
             switch (ruleSelf.toString().replace("\"","")){
                 case "end":{
-                    System.out.println("exiting scope : "+currentCtx.scope.pop());
+                    var s = currentCtx.scope.pop();
+//                    System.out.println("exiting scope : "+s);
                     break;
                     //
                 }
@@ -194,16 +205,16 @@ public class SPGenerator implements Generator{
                     break;
                 }
                 case "switch-cdt":{
-                    System.out.println("entering cdt");
+                    //generate select for every destination
+                    var destinations = getPossibleNodesForI(currentCtx.node).stream()
+                            .filter(item -> currentCtx.possibleNodesMask.contains(item)).toList();
+                    if(destinations.isEmpty()) return new EndInstr();
+//                    System.out.println("entering cdt");
                     currentCtx.scope.add("cdt");
 
                     var oldCtx = currentCtx;
                     currentCtx = currentCtx.reset();
                     currentCtx.scope.add("then");
-                    //generate select for every destination
-                    var destinations = getPossibleNodesForI(currentCtx.node).stream()
-                            .filter(item -> currentCtx.possibleNodesMask.contains(item)).toList();
-                    if(destinations.isEmpty()) return new EndInstr();
                     generateSelection("left", destinations);
                     generateNode();
                     var thenCtx = currentCtx;
@@ -221,8 +232,10 @@ public class SPGenerator implements Generator{
                     hm.put("else", elseCtx.tree);
                     var cdt = new Cdt(String.valueOf(node), hm, "myCondition");
                     currentCtx = oldCtx;
-                    System.out.println("exiting from "+currentCtx.scope.pop());
-                    System.out.println("exiting from "+currentCtx.scope.pop());
+                    var s1 = currentCtx.scope.pop();
+                    var s2 = currentCtx.scope.pop();
+//                    System.out.println("exiting from "+s1);
+//                    System.out.println("exiting from "+s2);
 
                     if(generateRequirementForCdt(destinations, thenCtx, elseCtx)){
                         if(currentCtx.tree != null) currentCtx.tree.addBehaviour(cdt);
@@ -277,7 +290,7 @@ public class SPGenerator implements Generator{
 
             }
         }
-        return p;
+        return null;
     }
 
     private void evaluateNeighborRules(Instruction instr, Behaviour behaviour, String snode) {
